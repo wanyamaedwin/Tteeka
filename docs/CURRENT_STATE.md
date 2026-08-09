@@ -1,6 +1,6 @@
 # Current State
 
-## B1.1: Merchant, User, and Membership data model foundation
+## B1.2: Password credentials and secure password hashing foundation
 
 The repository contains a backend-only npm workspace monorepo targeting Node.js 24 LTS.
 
@@ -72,15 +72,36 @@ B1.1 adds Tteeka's first domain data foundation:
 
 The identity relationship and storage contracts are documented in [IDENTITY_MODEL.md](IDENTITY_MODEL.md). B1.1 uses Prisma directly only in schema integration tests; it adds no business persistence boundary or HTTP surface.
 
+B1.2 adds the minimum password credential foundation:
+
+- a `PasswordCredential` model kept separate from the global `User` identity
+- an optional one-to-one User relationship enforced by unique `user_id`
+- PostgreSQL UUIDv7 credential identifiers and `timestamptz(3)` timestamps
+- encoded Argon2 PHC storage in `password_hash varchar(512)`
+- an intentional `ON DELETE CASCADE` for dependent credential material while membership restrictions remain intact
+- the independent `@tteeka/security` workspace package
+- Argon2id hashing with explicit memory, time, parallelism, and hash-length parameters
+- secure password verification with deterministic malformed-hash handling
+- rehash detection for future successful-login upgrades without automatic persistence
+- the second reviewed domain migration: `20260809210042_password_credentials`
+- cryptographic unit tests and real PostgreSQL credential integrity tests
+
+The credential storage, hashing rules, and future boundaries are documented in [PASSWORD_CREDENTIALS.md](PASSWORD_CREDENTIALS.md). Database integration tests use `@tteeka/security` as a development-only dependency to prove that only encoded hashes cross the persistence boundary.
+
 The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage therefore does not kill the process: liveness remains independent, while the existing direct `pg` readiness probe reports the outage. The worker constructs the same shared infrastructure but performs no database query, queue work, or business processing.
 
 ## Explicitly not implemented
 
 - frontend applications or UI
-- authentication, passwords, password hashes, login, logout, or authorization
-- sessions, refresh sessions, password reset, email verification, or phone OTP
+- login, logout, or request authentication
+- authentication controllers, services, or `AuthModule`
+- account registration or password-change APIs
+- sessions, cookies, JWTs, access tokens, or refresh tokens
+- password-reset tokens or password-reset workflow
+- email verification, phone verification, or OTP
 - roles, permissions, membership roles, or authorization guards
 - invitation workflow
+- rate limiting, account lockout, failed-login counters, MFA, or passkeys
 - merchant, user, or staff APIs, controllers, or business services
 - business persistence repositories
 - customers or catalogue
@@ -98,4 +119,4 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 
 Prisma remains exposed through infrastructure services; there are no identity repositories, business queries, services, controllers, or endpoints. No seed users or merchants exist.
 
-These items belong to later reviewed steps and are outside B1.1. B1.2 has not started.
+These items belong to later reviewed steps and are outside B1.2. B1.3 has not started.

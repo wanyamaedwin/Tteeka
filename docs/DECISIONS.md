@@ -144,3 +144,57 @@
 - **Status:** Accepted
 - **Decision:** `20260809201741_identity_foundation` is Tteeka's first domain migration.
 - **Rationale:** It introduces the first approved business-meaningful persistence structures without fake infrastructure tables or unrelated later-domain concepts.
+
+## ADR-025: Password credentials are separate from User
+
+- **Status:** Accepted
+- **Decision:** Password authentication material is stored in `PasswordCredential`, not directly on `User`.
+- **Rationale:** User remains the global human identity while credentials represent one attachable authentication mechanism. This avoids redesigning User when future mechanisms are evaluated.
+
+## ADR-026: Argon2id password hashing
+
+- **Status:** Accepted
+- **Decision:** Tteeka hashes passwords with Argon2id.
+- **Rationale:** Argon2id provides a memory-hard password hashing construction with balanced resistance to side-channel and tradeoff attacks. Competing password algorithms are not introduced.
+
+## ADR-027: Explicit password hashing parameters
+
+- **Status:** Accepted
+- **Decision:** Tteeka centrally sets Argon2 memory cost to 19,456 KiB, time cost to 2, parallelism to 1, and hash length to 32 bytes.
+- **Rationale:** Security behavior must not change silently when a dependency changes its defaults. Central configuration also provides one reviewed baseline for rehash decisions.
+
+## ADR-028: PHC-encoded password hash storage
+
+- **Status:** Accepted
+- **Decision:** `password_hash` stores only the encoded Argon2 PHC string; salts and hashing parameters are not duplicated into separate columns.
+- **Rationale:** The PHC value already contains the algorithm, version, parameters, salt, and resulting hash needed for verification. Duplicate columns could drift and plaintext never belongs in persistence.
+
+## ADR-029: One PasswordCredential per User
+
+- **Status:** Accepted
+- **Decision:** `PasswordCredential.userId` is unique, giving User an optional one-to-one password credential relationship.
+- **Rationale:** B1.2 defines one password authentication mechanism per human identity and prevents ambiguous duplicate password credentials.
+
+## ADR-030: Credential material cascades on User deletion
+
+- **Status:** Accepted
+- **Decision:** The PasswordCredential foreign key uses `ON DELETE CASCADE` when a User is legitimately physically deleted.
+- **Rationale:** Dependent credential material must not survive as an orphan. This explicit exception does not override the B1.1 MerchantMembership restriction that can block User deletion.
+
+## ADR-031: Password cryptography belongs to @tteeka/security
+
+- **Status:** Accepted
+- **Decision:** `@tteeka/security` owns password hashing, verification, and rehash detection independently of Prisma, the database package, NestJS, and applications.
+- **Rationale:** Cryptographic policy needs one reusable, testable boundary without creating a database dependency or coupling primitives to an HTTP framework.
+
+## ADR-032: Rehash detection precedes login
+
+- **Status:** Accepted
+- **Decision:** B1.2 exposes rehash detection without automatically updating stored hashes.
+- **Rationale:** A future successful login can upgrade older hashes deliberately and transactionally. No login flow exists in this checkpoint.
+
+## ADR-033: No password pepper in B1.2
+
+- **Status:** Accepted
+- **Decision:** Tteeka introduces no password pepper until secret-management and rotation operations are designed.
+- **Rationale:** A pepper without controlled storage, access, rotation, and incident procedures can create operational risk. It may be evaluated later as defense-in-depth.

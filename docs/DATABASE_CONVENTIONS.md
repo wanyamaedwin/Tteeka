@@ -16,6 +16,8 @@ Core domain identifiers are PostgreSQL `uuid` columns whose defaults are generat
 
 Canonical phone values use E.164 representation and fit `varchar(16)`. Application services must canonicalize phone numbers before future writes. Email values fit `varchar(320)` and must be normalized by future application services before writes; case-insensitive database extensions are not part of B1.1.
 
+Password credentials use the physical table `password_credentials` and snake_case columns. `password_hash` stores only the encoded Argon2 PHC string in `varchar(512)`. Plaintext passwords and separately duplicated salts or Argon2 parameters never belong in database columns.
+
 ## Client and connection lifecycle
 
 `@tteeka/database` owns the authoritative Prisma Client factory and PostgreSQL adapter construction. It accepts the already validated database URL from `@tteeka/config`; application code must not duplicate environment parsing or log connection credentials.
@@ -44,6 +46,8 @@ Applied or shared domain migrations are immutable historical artifacts. Correct 
 
 `20260809201741_identity_foundation` is the first genuine Tteeka migration. It makes the database managed by Prisma Migrate and introduces only the B1.1 identity structures.
 
+`20260809210042_password_credentials` is the second domain migration. The already-applied B1.1 migration must not be manually changed as part of credential work.
+
 ## Query and model policy
 
 Prefer Prisma's typed query API for application work. Raw SQL requires a concrete need, parameter binding, review, and tests; the static `SELECT 1` smoke query is infrastructure-only and does not modify data.
@@ -51,3 +55,5 @@ Prefer Prisma's typed query API for application work. Raw SQL requires a concret
 Transaction boundaries will be expanded when business modules arrive. Migrations are always source-controlled.
 
 Core identity entities use lifecycle statuses rather than physical deletion. Foreign keys from memberships to merchants and users use `ON DELETE RESTRICT`; core identity history must not disappear through cascade deletion.
+
+Dependent security material may use cascade deletion only when explicitly justified. `PasswordCredential` uses `ON DELETE CASCADE` because credential material must not outlive a legitimately deleted User. This does not weaken the existing membership restriction that can prevent User deletion.

@@ -1,6 +1,6 @@
 # Tteeka Backend
 
-Tteeka is a Uganda-first WhatsApp Commerce Operating System. This repository currently contains the backend foundation through B1.1.
+Tteeka is a Uganda-first WhatsApp Commerce Operating System. This repository currently contains the backend foundation through B1.2.
 
 ## Requirements
 
@@ -16,6 +16,7 @@ With a Node version manager, use the version declared in `.nvmrc` before install
 - `apps/worker` — configuration-aware standalone TypeScript worker process
 - `packages/config` — shared schema-validated application configuration
 - `packages/database` — shared Prisma persistence infrastructure
+- `packages/security` — shared Argon2id password cryptography infrastructure
 - `packages/testing` — placeholder for future shared testing utilities
 - `prisma` — Prisma schema and source-controlled migrations
 - `docs` — current-state and architecture decision documentation
@@ -108,7 +109,9 @@ npm run prisma:generate
 
 For future schema changes, generate a named migration with `npm run prisma:migrate:dev -- --name <migration_name> --create-only`, review the SQL, and only then apply it with `npm run prisma:migrate:dev`.
 
-`npm run prisma:migrate:deploy` only applies reviewed, committed migrations and is the migration command for staging and production. It does not create new migrations. B1.1's `identity_foundation` migration introduces Merchant, User, and MerchantMembership.
+`npm run prisma:migrate:deploy` only applies reviewed, committed migrations and is the migration command for staging and production. It does not create new migrations. B1.1's `identity_foundation` migration introduces Merchant, User, and MerchantMembership; B1.2's `password_credentials` migration adds optional one-to-one password credentials.
+
+The password hashing utilities live in `@tteeka/security`. They provide Argon2id hashing, verification, and rehash detection. Login and other authentication APIs are not implemented.
 
 ## Validation
 
@@ -124,4 +127,4 @@ Use `npm run format` to apply Prettier formatting.
 
 The test command includes real identity-schema integration tests and therefore requires the local PostgreSQL infrastructure with the migration applied.
 
-See [docs/IDENTITY_MODEL.md](docs/IDENTITY_MODEL.md) for the identity relationships and storage contracts, [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) for the exact implementation boundary, and [docs/DATABASE_CONVENTIONS.md](docs/DATABASE_CONVENTIONS.md) for persistence and migration rules.
+See [docs/IDENTITY_MODEL.md](docs/IDENTITY_MODEL.md) for identity relationships, [docs/PASSWORD_CREDENTIALS.md](docs/PASSWORD_CREDENTIALS.md) for credential storage and hashing boundaries, [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) for the exact implementation boundary, and [docs/DATABASE_CONVENTIONS.md](docs/DATABASE_CONVENTIONS.md) for persistence and migration rules.

@@ -11,7 +11,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace @tteeka/config && npm run build --workspace @tteeka/database && npm run build --workspace @tteeka/testing && npm run build --workspace @tteeka/api && npm run build --workspace @tteeka/worker",
+    "build": "npm run build --workspace @tteeka/config && npm run build --workspace @tteeka/security && npm run build --workspace @tteeka/database && npm run build --workspace @tteeka/testing && npm run build --workspace @tteeka/api && npm run build --workspace @tteeka/worker",
     "db:check": "npm run build --workspace @tteeka/config && npm run build --workspace @tteeka/database && node --env-file-if-exists=.env packages/database/dist/check.js",
     "dev:api": "npm run dev --workspace @tteeka/api",
     "dev:worker": "npm run dev --workspace @tteeka/worker",
@@ -23,7 +23,7 @@
     "lint": "eslint .",
     "prebuild": "npm run prisma:generate",
     "predb:check": "npm run prisma:generate",
-    "pretest": "npm run prisma:generate && npm run build --workspace @tteeka/config && npm run build --workspace @tteeka/database",
+    "pretest": "npm run prisma:generate && npm run build --workspace @tteeka/config && npm run build --workspace @tteeka/security && npm run build --workspace @tteeka/database",
     "pretypecheck": "npm run prisma:generate",
     "prisma:format": "prisma format",
     "prisma:generate": "prisma generate",

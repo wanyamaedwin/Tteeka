@@ -10,12 +10,15 @@
   "types": "src/index.ts",
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
-    "test": "node --env-file-if-exists=../../.env --import tsx --test src/client.spec.ts src/identity.integration.spec.ts",
+    "test": "npm run build --workspace @tteeka/security && node --env-file-if-exists=../../.env --import tsx --test src/client.spec.ts src/identity.integration.spec.ts src/password-credential.integration.spec.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.9.1",
     "@prisma/client": "7.9.1",
     "@tteeka/config": "^0.0.0"
+  },
+  "devDependencies": {
+    "@tteeka/security": "^0.0.0"
   }
 }
