@@ -6,6 +6,7 @@ Tteeka is a Uganda-first WhatsApp Commerce Operating System. This repository cur
 
 - Node.js 24 LTS
 - npm
+- Docker Desktop or Docker Engine with Docker Compose
 
 With a Node version manager, use the version declared in `.nvmrc` before installing dependencies.
 
@@ -22,6 +23,29 @@ With a Node version manager, use the version declared in `.nvmrc` before install
 ```sh
 npm install
 ```
+
+## Local infrastructure
+
+Create a local environment file in PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Start PostgreSQL 18 and Redis 8, then check their status:
+
+```sh
+npm run infra:up
+npm run infra:status
+```
+
+Stop the containers without deleting their persistent volumes:
+
+```sh
+npm run infra:down
+```
+
+The example configuration binds PostgreSQL to `127.0.0.1:5432` and Redis to `127.0.0.1:6379`. Change `POSTGRES_PORT` or `REDIS_PORT` in `.env` if either host port is already in use.
 
 ## Development
 

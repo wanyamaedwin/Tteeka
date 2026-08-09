@@ -1,10 +1,10 @@
 # Current State
 
-## B0.1: Repository and TypeScript/NestJS engineering foundation
+## B0.2: PostgreSQL and Redis local development infrastructure
 
 The repository contains a backend-only npm workspace monorepo targeting Node.js 24 LTS.
 
-Implemented in B0.1:
+The B0.1 engineering foundation provides:
 
 - npm workspaces for `apps/*` and `packages/*`
 - shared strict TypeScript configuration
@@ -15,6 +15,15 @@ Implemented in B0.1:
 - a minimal standalone TypeScript worker entry point
 - placeholder shared `config` and `testing` packages
 - repository documentation and architecture decision records
+
+B0.2 adds local development infrastructure:
+
+- a PostgreSQL 18 Alpine container
+- a Redis 8 Alpine container with append-only persistence enabled
+- persistent named volumes for PostgreSQL and Redis data
+- readiness health checks using `pg_isready` and `redis-cli ping`
+- documented local environment configuration in `.env.example`
+- root commands to start, inspect, and stop the infrastructure
 
 The API has no controllers, services, domain modules, database connections, or generated OpenAPI description. The worker has no job or queue processing.
 
@@ -39,4 +48,6 @@ The API has no controllers, services, domain modules, database connections, or g
 - Swagger or OpenAPI
 - business functionality of any kind
 
-These items belong to later steps and are outside B0.1.
+In particular, Prisma, database schemas, migrations, and BullMQ are not implemented. The API is not connected to PostgreSQL or Redis. The worker is not connected to either service. No Tteeka business data models exist.
+
+These items belong to later steps and are outside B0.2.

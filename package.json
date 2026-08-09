@@ -16,6 +16,9 @@
     "dev:worker": "npm run dev --workspace @tteeka/worker",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "infra:down": "docker compose down",
+    "infra:status": "docker compose ps",
+    "infra:up": "docker compose up -d --wait",
     "lint": "eslint .",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
