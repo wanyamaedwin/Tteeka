@@ -18,6 +18,10 @@ Canonical phone values use E.164 representation and fit `varchar(16)`. Applicati
 
 Password credentials use the physical table `password_credentials` and snake_case columns. `password_hash` stores only the encoded Argon2 PHC string in `varchar(512)`. Plaintext passwords and separately duplicated salts or Argon2 parameters never belong in database columns.
 
+Authorization uses explicit `membership_roles` and `role_permissions` join entities rather than implicit ORM many-to-many tables. Tenant-owned authorization links carry `merchant_id` where it is needed for ownership, lookup, and database-enforced tenant integrity. Composite foreign keys pair that tenant identifier with the related identifier so PostgreSQL rejects cross-merchant links. Supporting unique indexes such as `(merchant_id, id)` may exist specifically to make those tenant-aware references valid even when `id` remains the normal primary key.
+
+Global lookup entities are documented exceptions to merchant ownership. `Permission` is a global capability definition and therefore has no `merchant_id`; merchant context enters through Role and RolePermission. Dependent authorization joins may cascade when their owning Membership or Role is legitimately physically removed, while deletion of a referenced Permission is restricted. Lifecycle status remains preferred over destructive deletion.
+
 ## Client and connection lifecycle
 
 `@tteeka/database` owns the authoritative Prisma Client factory and PostgreSQL adapter construction. It accepts the already validated database URL from `@tteeka/config`; application code must not duplicate environment parsing or log connection credentials.
@@ -48,6 +52,8 @@ Applied or shared domain migrations are immutable historical artifacts. Correct 
 
 `20260809210042_password_credentials` is the second domain migration. The already-applied B1.1 migration must not be manually changed as part of credential work.
 
+`20260809213158_authorization_foundation` is the third domain migration. It adds only the B1.3 authorization schema and the supporting MerchantMembership composite unique index. Both earlier migrations remain immutable.
+
 ## Query and model policy
 
 Prefer Prisma's typed query API for application work. Raw SQL requires a concrete need, parameter binding, review, and tests; the static `SELECT 1` smoke query is infrastructure-only and does not modify data.
@@ -57,3 +63,5 @@ Transaction boundaries will be expanded when business modules arrive. Migrations
 Core identity entities use lifecycle statuses rather than physical deletion. Foreign keys from memberships to merchants and users use `ON DELETE RESTRICT`; core identity history must not disappear through cascade deletion.
 
 Dependent security material may use cascade deletion only when explicitly justified. `PasswordCredential` uses `ON DELETE CASCADE` because credential material must not outlive a legitimately deleted User. This does not weaken the existing membership restriction that can prevent User deletion.
+
+Dependent authorization assignments use cascades only with their owning Membership or Role. Referenced global Permissions and Merchants that own Roles use restrictive deletion. Disabling a Membership or Role and deprecating a Permission preserve their authorization links.

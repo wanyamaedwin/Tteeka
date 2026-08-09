@@ -1,6 +1,6 @@
 # Tteeka Backend
 
-Tteeka is a Uganda-first WhatsApp Commerce Operating System. This repository currently contains the backend foundation through B1.2.
+Tteeka is a Uganda-first WhatsApp Commerce Operating System. This repository currently contains the backend foundation through B1.3.
 
 ## Requirements
 
@@ -109,9 +109,11 @@ npm run prisma:generate
 
 For future schema changes, generate a named migration with `npm run prisma:migrate:dev -- --name <migration_name> --create-only`, review the SQL, and only then apply it with `npm run prisma:migrate:dev`.
 
-`npm run prisma:migrate:deploy` only applies reviewed, committed migrations and is the migration command for staging and production. It does not create new migrations. B1.1's `identity_foundation` migration introduces Merchant, User, and MerchantMembership; B1.2's `password_credentials` migration adds optional one-to-one password credentials.
+`npm run prisma:migrate:deploy` only applies reviewed, committed migrations and is the migration command for staging and production. It does not create new migrations. B1.1's `identity_foundation` migration introduces Merchant, User, and MerchantMembership; B1.2's `password_credentials` migration adds optional one-to-one password credentials; B1.3's `authorization_foundation` migration adds merchant-scoped Roles, global Permissions, and tenant-safe explicit assignment records.
 
 The password hashing utilities live in `@tteeka/security`. They provide Argon2id hashing, verification, and rehash detection. Login and other authentication APIs are not implemented.
+
+The merchant-scoped authorization data model now exists, including database-enforced protection against cross-merchant role assignments. Authorization decisions, guards, decorators, default Roles and Permissions, and role-management APIs are not implemented. See [docs/AUTHORIZATION_MODEL.md](docs/AUTHORIZATION_MODEL.md).
 
 ## Validation
 
@@ -127,4 +129,4 @@ Use `npm run format` to apply Prettier formatting.
 
 The test command includes real identity-schema integration tests and therefore requires the local PostgreSQL infrastructure with the migration applied.
 
-See [docs/IDENTITY_MODEL.md](docs/IDENTITY_MODEL.md) for identity relationships, [docs/PASSWORD_CREDENTIALS.md](docs/PASSWORD_CREDENTIALS.md) for credential storage and hashing boundaries, [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) for the exact implementation boundary, and [docs/DATABASE_CONVENTIONS.md](docs/DATABASE_CONVENTIONS.md) for persistence and migration rules.
+See [docs/IDENTITY_MODEL.md](docs/IDENTITY_MODEL.md) for identity relationships, [docs/PASSWORD_CREDENTIALS.md](docs/PASSWORD_CREDENTIALS.md) for credential storage and hashing boundaries, [docs/AUTHORIZATION_MODEL.md](docs/AUTHORIZATION_MODEL.md) for merchant-scoped authorization persistence, [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) for the exact implementation boundary, and [docs/DATABASE_CONVENTIONS.md](docs/DATABASE_CONVENTIONS.md) for persistence and migration rules.

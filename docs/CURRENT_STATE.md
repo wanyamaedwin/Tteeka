@@ -1,6 +1,6 @@
 # Current State
 
-## B1.2: Password credentials and secure password hashing foundation
+## B1.3: Roles, permissions, and merchant-scoped authorization data model
 
 The repository contains a backend-only npm workspace monorepo targeting Node.js 24 LTS.
 
@@ -88,6 +88,23 @@ B1.2 adds the minimum password credential foundation:
 
 The credential storage, hashing rules, and future boundaries are documented in [PASSWORD_CREDENTIALS.md](PASSWORD_CREDENTIALS.md). Database integration tests use `@tteeka/security` as a development-only dependency to prove that only encoded hashes cross the persistence boundary.
 
+B1.3 adds the merchant-scoped authorization persistence foundation:
+
+- a global `Permission` capability vocabulary with `ACTIVE` and `DEPRECATED` lifecycle
+- merchant-scoped `Role` records with `ACTIVE` and `DISABLED` lifecycle
+- explicit `MembershipRole` records supporting multiple Roles per Membership and multiple Memberships per Role
+- explicit `RolePermission` records supporting multiple Permissions per Role and global Permission reuse across Merchants
+- merchant-local Role-name uniqueness and globally unique Permission keys
+- tenant ownership carried on authorization assignment records
+- supporting `(merchant_id, id)` uniqueness on Role and MerchantMembership
+- composite foreign keys that make PostgreSQL reject cross-merchant MembershipRole and RolePermission writes
+- deliberate cascade deletion for dependent assignment rows and restrictive deletion for referenced Merchants and Permissions
+- PostgreSQL UUIDv7 identifiers and `timestamptz(3)` timestamps
+- the third reviewed domain migration: `20260809213158_authorization_foundation`
+- real PostgreSQL tests for defaults, uniqueness, cardinality, lifecycle persistence, referential actions, direct tenant attacks, and database catalog guarantees
+
+The model and tenant-boundary design are documented in [AUTHORIZATION_MODEL.md](AUTHORIZATION_MODEL.md). B1.3 contains no Role or Permission seed data and no authorization decision engine.
+
 The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage therefore does not kill the process: liveness remains independent, while the existing direct `pg` readiness probe reports the outage. The worker constructs the same shared infrastructure but performs no database query, queue work, or business processing.
 
 ## Explicitly not implemented
@@ -99,7 +116,9 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - sessions, cookies, JWTs, access tokens, or refresh tokens
 - password-reset tokens or password-reset workflow
 - email verification, phone verification, or OTP
-- roles, permissions, membership roles, or authorization guards
+- default Permissions, default Roles, Permission seeding, or Role seeding
+- `AuthorizationModule`, authorization services, permission resolution, guards, or decorators
+- role-management or staff-management APIs
 - invitation workflow
 - rate limiting, account lockout, failed-login counters, MFA, or passkeys
 - merchant, user, or staff APIs, controllers, or business services
@@ -119,4 +138,4 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 
 Prisma remains exposed through infrastructure services; there are no identity repositories, business queries, services, controllers, or endpoints. No seed users or merchants exist.
 
-These items belong to later reviewed steps and are outside B1.2. B1.3 has not started.
+These items belong to later reviewed steps and are outside B1.3. B1.4 has not started.

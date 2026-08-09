@@ -198,3 +198,99 @@
 - **Status:** Accepted
 - **Decision:** Tteeka introduces no password pepper until secret-management and rotation operations are designed.
 - **Rationale:** A pepper without controlled storage, access, rotation, and incident procedures can create operational risk. It may be evaluated later as defense-in-depth.
+
+## ADR-034: Roles are merchant-scoped
+
+- **Status:** Accepted
+- **Decision:** Every Role belongs to exactly one Merchant.
+- **Rationale:** Role meaning and assignment are merchant-specific; a global Role would leak authorization configuration across tenant boundaries.
+
+## ADR-035: Permissions are global stable capabilities
+
+- **Status:** Accepted
+- **Decision:** Permission defines a globally unique, stable capability key and does not belong to a Merchant.
+- **Rationale:** A shared capability vocabulary avoids duplicating the same semantic action per tenant while Roles provide merchant-specific grouping.
+
+## ADR-036: Memberships receive Roles through MembershipRole
+
+- **Status:** Accepted
+- **Decision:** Role assignment uses the explicit MembershipRole entity.
+- **Rationale:** An explicit UUIDv7 and timestamped link provides deterministic physical naming, constraints, tenant ownership, and room for later audit metadata.
+
+## ADR-037: Roles receive Permissions through RolePermission
+
+- **Status:** Accepted
+- **Decision:** Permission assignment uses the explicit RolePermission entity.
+- **Rationale:** An explicit link preserves physical control and tenant context instead of hiding authorization configuration in an implicit ORM join table.
+
+## ADR-038: Memberships may receive multiple Roles
+
+- **Status:** Accepted
+- **Decision:** MerchantMembership has no single `roleId`; MembershipRole provides a many-to-many relationship.
+- **Rationale:** Staff responsibilities can combine multiple independently managed Roles, and a single field would impose an artificial limit.
+
+## ADR-039: Authorization links carry tenant identity
+
+- **Status:** Accepted
+- **Decision:** MembershipRole and RolePermission include `merchantId` where it is needed for ownership and tenant-safe references.
+- **Rationale:** Carrying merchant identity makes the assignment's tenant explicit and enables PostgreSQL to enforce it as part of composite keys.
+
+## ADR-040: Composite foreign keys enforce authorization tenancy
+
+- **Status:** Accepted
+- **Decision:** Cross-merchant Role assignment is prevented with composite database foreign keys, not solely application checks.
+- **Rationale:** PostgreSQL must reject mismatched Merchant, Membership, and Role identifiers even if future application code issues an invalid direct write.
+
+## ADR-041: Role names are unique per Merchant
+
+- **Status:** Accepted
+- **Decision:** Each `(merchantId, name)` Role pair is unique, while different Merchants may use the same name.
+- **Rationale:** Role names are merchant-local business labels rather than a global capability vocabulary.
+
+## ADR-042: Permission keys are globally unique
+
+- **Status:** Accepted
+- **Decision:** Permission keys have one global uniqueness constraint.
+- **Rationale:** A stable key must identify one capability consistently across every Merchant and Role.
+
+## ADR-043: Permission lifecycle uses ACTIVE and DEPRECATED
+
+- **Status:** Accepted
+- **Decision:** Permissions use `ACTIVE` and `DEPRECATED`, defaulting to `ACTIVE`.
+- **Rationale:** Deprecated keys may remain historically addressable while later configuration stops adopting them.
+
+## ADR-044: Role lifecycle uses ACTIVE and DISABLED
+
+- **Status:** Accepted
+- **Decision:** Roles use `ACTIVE` and `DISABLED`, defaulting to `ACTIVE`.
+- **Rationale:** Lifecycle state is separate from Role identity; owner, system, or built-in categories do not belong in the status enum.
+
+## ADR-045: Authorization is not stored on User
+
+- **Status:** Accepted
+- **Decision:** User has no direct Role, Permission, or authorization field.
+- **Rationale:** User is global, while authorization is derived in Merchant context through MerchantMembership.
+
+## ADR-046: No owner or administrator boolean
+
+- **Status:** Accepted
+- **Decision:** User and MerchantMembership do not gain `isOwner`, `isAdmin`, or equivalent authorization booleans.
+- **Rationale:** Authorization concepts belong in the Role and Permission model rather than accumulating rigid special-case flags.
+
+## ADR-047: Default authorization bootstrap is deferred
+
+- **Status:** Accepted
+- **Decision:** B1.3 seeds no default Roles and no Permission catalog.
+- **Rationale:** Bootstrap policy, stable catalog contents, and evolution require a separately reviewed checkpoint; this checkpoint establishes persistence only.
+
+## ADR-048: Dependent authorization links may cascade
+
+- **Status:** Accepted
+- **Decision:** MembershipRole cascades when its owning Membership or Role is physically removed, and RolePermission cascades when its owning Role is removed.
+- **Rationale:** Assignment rows are dependent configuration and must not survive without the relationship they describe; lifecycle statuses remain the normal management path.
+
+## ADR-049: Referenced Permission deletion is restricted
+
+- **Status:** Accepted
+- **Decision:** A Permission referenced by RolePermission cannot be physically deleted.
+- **Rationale:** Silent deletion would change authorization semantics; deprecation preserves both the capability identity and existing assignments.

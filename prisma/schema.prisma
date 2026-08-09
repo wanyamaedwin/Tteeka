@@ -31,6 +31,20 @@ enum MerchantMembershipStatus {
   @@map("merchant_membership_status")
 }
 
+enum PermissionStatus {
+  ACTIVE
+  DEPRECATED
+
+  @@map("permission_status")
+}
+
+enum RoleStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("role_status")
+}
+
 model Merchant {
   id          String         @id(map: "merchants_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
   displayName String         @map("display_name") @db.VarChar(160)
@@ -44,6 +58,7 @@ model Merchant {
   updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   memberships MerchantMembership[]
+  roles       Role[]
 
   @@index([status], map: "merchants_status_idx")
   @@map("merchants")
@@ -86,11 +101,76 @@ model MerchantMembership {
   createdAt  DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt  DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "merchant_memberships_merchant_id_fkey")
-  user     User     @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "merchant_memberships_user_id_fkey")
+  merchant        Merchant         @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "merchant_memberships_merchant_id_fkey")
+  user            User             @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "merchant_memberships_user_id_fkey")
+  membershipRoles MembershipRole[]
 
   @@unique([merchantId, userId], map: "merchant_memberships_merchant_id_user_id_key")
+  @@unique([merchantId, id], map: "merchant_memberships_merchant_id_id_key")
   @@index([merchantId, status], map: "merchant_memberships_merchant_id_status_idx")
   @@index([userId, status], map: "merchant_memberships_user_id_status_idx")
   @@map("merchant_memberships")
+}
+
+model Permission {
+  id          String           @id(map: "permissions_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  key         String           @unique(map: "permissions_key_key") @db.VarChar(120)
+  description String?          @db.VarChar(320)
+  status      PermissionStatus @default(ACTIVE)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  rolePermissions RolePermission[]
+
+  @@index([status], map: "permissions_status_idx")
+  @@map("permissions")
+}
+
+model Role {
+  id          String     @id(map: "roles_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  merchantId  String     @map("merchant_id") @db.Uuid
+  name        String     @db.VarChar(80)
+  description String?    @db.VarChar(320)
+  status      RoleStatus @default(ACTIVE)
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  merchant        Merchant         @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "roles_merchant_id_fkey")
+  membershipRoles MembershipRole[]
+  rolePermissions RolePermission[]
+
+  @@unique([merchantId, name], map: "roles_merchant_id_name_key")
+  @@unique([merchantId, id], map: "roles_merchant_id_id_key")
+  @@index([merchantId, status], map: "roles_merchant_id_status_idx")
+  @@map("roles")
+}
+
+model MembershipRole {
+  id           String   @id(map: "membership_roles_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  merchantId   String   @map("merchant_id") @db.Uuid
+  membershipId String   @map("membership_id") @db.Uuid
+  roleId       String   @map("role_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  membership MerchantMembership @relation(fields: [merchantId, membershipId], references: [merchantId, id], onDelete: Cascade, onUpdate: Cascade, map: "membership_roles_merchant_id_membership_id_fkey")
+  role       Role               @relation(fields: [merchantId, roleId], references: [merchantId, id], onDelete: Cascade, onUpdate: Cascade, map: "membership_roles_merchant_id_role_id_fkey")
+
+  @@unique([membershipId, roleId], map: "membership_roles_membership_id_role_id_key")
+  @@index([merchantId, roleId], map: "membership_roles_merchant_id_role_id_idx")
+  @@map("membership_roles")
+}
+
+model RolePermission {
+  id           String   @id(map: "role_permissions_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  merchantId   String   @map("merchant_id") @db.Uuid
+  roleId       String   @map("role_id") @db.Uuid
+  permissionId String   @map("permission_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  role       Role       @relation(fields: [merchantId, roleId], references: [merchantId, id], onDelete: Cascade, onUpdate: Cascade, map: "role_permissions_merchant_id_role_id_fkey")
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "role_permissions_permission_id_fkey")
+
+  @@unique([roleId, permissionId], map: "role_permissions_role_id_permission_id_key")
+  @@index([permissionId], map: "role_permissions_permission_id_idx")
+  @@map("role_permissions")
 }

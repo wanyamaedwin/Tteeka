@@ -10,7 +10,7 @@
   "types": "src/index.ts",
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
-    "test": "npm run build --workspace @tteeka/security && node --env-file-if-exists=../../.env --import tsx --test src/client.spec.ts src/identity.integration.spec.ts src/password-credential.integration.spec.ts",
+    "test": "npm run build --workspace @tteeka/security && node --env-file-if-exists=../../.env --import tsx --test src/client.spec.ts src/identity.integration.spec.ts src/password-credential.integration.spec.ts src/authorization.integration.spec.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {

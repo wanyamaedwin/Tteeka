@@ -22,6 +22,8 @@ One Merchant has many MerchantMemberships. One User has many MerchantMemberships
 
 `MerchantMembership` makes the relationship many-to-many: a merchant can have multiple staff users, and the same human user can work across multiple merchants. `User` therefore has no `merchantId`. Merchant-specific identity properties will belong on the membership or related merchant-scoped models rather than on the global user.
 
+B1.3 connects MerchantMembership to merchant-scoped authorization through explicit `MembershipRole` records. A Membership may receive multiple Roles, so no single `roleId` was added to MerchantMembership. The supporting `(merchant_id, id)` uniqueness exists for tenant-safe composite foreign keys and does not replace the identity-level `(merchant_id, user_id)` uniqueness. See [AUTHORIZATION_MODEL.md](AUTHORIZATION_MODEL.md) for the authorization relationships.
+
 ## Merchant
 
 `Merchant` is the tenant and represents a business operating on Tteeka.
@@ -72,7 +74,7 @@ The status index is `users_status_idx`.
 | `createdAt`  | `created_at`      | `timestamptz(3)`, default current time               |
 | `updatedAt`  | `updated_at`      | `timestamptz(3)`, maintained by Prisma               |
 
-`merchant_memberships_merchant_id_user_id_key` makes each `(merchant_id, user_id)` pair unique. Lookup indexes are `merchant_memberships_merchant_id_status_idx` and `merchant_memberships_user_id_status_idx`; the unique pair also supports merchant-and-user lookups.
+`merchant_memberships_merchant_id_user_id_key` makes each `(merchant_id, user_id)` pair unique. `merchant_memberships_merchant_id_id_key` supports tenant-aware authorization references. Lookup indexes are `merchant_memberships_merchant_id_status_idx` and `merchant_memberships_user_id_status_idx`; the unique pairs support their respective identity and tenant-integrity uses.
 
 Both foreign keys use `ON DELETE RESTRICT`. Tteeka changes lifecycle status instead of physically deleting a referenced Merchant or User, preserving membership history. Updates to referenced UUIDs use `ON UPDATE CASCADE`, although identifiers are not expected to change.
 
@@ -90,6 +92,6 @@ Status changes do not delete related records. No hard-delete API exists.
 
 ## Intentional omissions
 
-Roles are absent from both User and MerchantMembership. A role is merchant-specific, not a global User property, and the role/permission model will be designed in a later reviewed checkpoint. B1.1 does not pre-encode owner, manager, sales, or other roles.
+No Role is stored directly on User, and MerchantMembership has no single Role field. B1.3 models merchant-scoped Roles through explicit MembershipRole records, without pre-encoding owner, manager, sales, or other default roles.
 
 Passwords, password hashes, sessions, login, logout, verification, reset, and invitation workflows are also absent. Authentication is a separate checkpoint and must build on this identity foundation without weakening its tenancy or integrity rules.
