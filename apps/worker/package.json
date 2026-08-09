@@ -8,12 +8,13 @@
   },
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
-    "dev": "npm run build --workspace @tteeka/config && node --env-file-if-exists=../../.env --import tsx --watch src/main.ts",
+    "dev": "npm run build --workspace @tteeka/config && npm run build --workspace @tteeka/database && node --env-file-if-exists=../../.env --import tsx --watch src/main.ts",
     "start": "node --env-file-if-exists=../../.env dist/main.js",
-    "test": "npm run build --workspace @tteeka/config && node --import tsx --test src/worker.spec.ts",
+    "test": "npm run build --workspace @tteeka/config && npm run build --workspace @tteeka/database && node --import tsx --test src/worker.spec.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {
-    "@tteeka/config": "^0.0.0"
+    "@tteeka/config": "^0.0.0",
+    "@tteeka/database": "^0.0.0"
   }
 }

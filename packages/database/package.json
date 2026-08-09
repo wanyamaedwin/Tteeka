@@ -1,0 +1,21 @@
+{
+  "name": "@tteeka/database",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared Prisma persistence infrastructure",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "test": "node --import tsx --test src/client.spec.ts",
+    "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.9.1",
+    "@prisma/client": "7.9.1",
+    "@tteeka/config": "^0.0.0"
+  }
+}

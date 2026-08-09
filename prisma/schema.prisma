@@ -1,0 +1,10 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../packages/database/src/generated/prisma"
+  moduleFormat = "cjs"
+  runtime      = "nodejs"
+}
+
+datasource db {
+  provider = "postgresql"
+}

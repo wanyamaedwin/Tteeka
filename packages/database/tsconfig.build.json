@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": true,
+    "tsBuildInfoFile": null
+  },
+  "exclude": ["dist", "node_modules", "src/**/*.spec.ts"]
+}

@@ -1,6 +1,6 @@
 # Current State
 
-## B0.3: Application configuration and infrastructure health integration
+## B0.4: Prisma foundation, database connectivity, and migration workflow
 
 The repository contains a backend-only npm workspace monorepo targeting Node.js 24 LTS.
 
@@ -38,27 +38,46 @@ B0.3 adds application configuration and operational health integration:
 - deterministic readiness timeouts and secret-safe failure responses
 - automated configuration, health, and worker configuration tests
 
-The PostgreSQL and Redis clients are used only for operational readiness checks. They do not provide application persistence, caching, sessions, queue processing, or business behavior.
+The direct PostgreSQL and Redis clients from B0.3 remain dedicated operational readiness probes.
+
+B0.4 adds application persistence infrastructure without adding application data:
+
+- Prisma ORM 7 and its explicit `prisma-client` generator
+- a PostgreSQL datasource schema with no application models
+- root `prisma.config.ts` for schema, migrations, and CLI datasource configuration
+- an ignored, reproducible generated Prisma Client workflow
+- `@prisma/adapter-pg` for Prisma PostgreSQL runtime connectivity
+- the shared `@tteeka/database` workspace package
+- one authoritative Prisma Client factory that accepts validated configuration
+- process-scoped Prisma Client ownership and cleanup in the API
+- shared Prisma construction and cleanup support in the worker
+- a non-business `SELECT 1` database connectivity command
+- Prisma format, validation, generation, migration-status, development-migration, and deployment-migration scripts
+- unit coverage for the database factory and API/worker lifecycle integration
+- real local PostgreSQL connectivity validation through Prisma
+
+The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage therefore does not kill the process: liveness remains independent, while the existing direct `pg` readiness probe reports the outage. The worker constructs the same shared infrastructure but performs no database query, queue work, or business processing.
 
 ## Explicitly not implemented
 
 - frontend applications or UI
-- Prisma or `@prisma/client`
-- database schemas or migrations
-- business persistence or repositories
+- application data models
+- migrations containing Tteeka domain tables
+- business persistence repositories
 - authentication or authorization
-- users, merchants, roles, or permissions
+- users, merchants, staff, roles, permissions, or sessions
 - customers or catalogue
 - products or inventory
 - orders or payments
 - cash on delivery (COD)
 - delivery, riders, or returns
 - receipts
+- outbox functionality
 - BullMQ, queues, workers, or background jobs
 - WhatsApp, MTN, or Airtel integrations
 - Swagger or OpenAPI
 - business functionality of any kind
 
-No Tteeka business data models exist. The worker validates PostgreSQL and Redis URLs but does not open connections to either service. The API connections are health-only and are not exposed to domain code.
+No Tteeka business data models or domain migrations exist. Prisma is exposed only through infrastructure services; there are no business repositories, queries, services, or endpoints.
 
-These items belong to later steps and are outside B0.3.
+These items belong to later steps and are outside B0.4.

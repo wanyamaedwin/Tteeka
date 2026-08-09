@@ -1,6 +1,6 @@
 # Tteeka Backend
 
-Tteeka is a Uganda-first WhatsApp Commerce Operating System. This repository currently contains the backend foundation through B0.3.
+Tteeka is a Uganda-first WhatsApp Commerce Operating System. This repository currently contains the backend foundation through B0.4.
 
 ## Requirements
 
@@ -15,13 +15,16 @@ With a Node version manager, use the version declared in `.nvmrc` before install
 - `apps/api` — NestJS 11 API with operational health endpoints
 - `apps/worker` — configuration-aware standalone TypeScript worker process
 - `packages/config` — shared schema-validated application configuration
+- `packages/database` — shared Prisma persistence infrastructure
 - `packages/testing` — placeholder for future shared testing utilities
+- `prisma` — Prisma schema and future source-controlled migrations
 - `docs` — current-state and architecture decision documentation
 
 ## Setup
 
 ```sh
 npm install
+npm run prisma:generate
 ```
 
 ## Local infrastructure
@@ -55,6 +58,8 @@ Application configuration is validated at startup:
 - `REDIS_URL` configures the Redis readiness probe
 - `INFRA_HEALTH_TIMEOUT_MS` limits each infrastructure check
 
+`DATABASE_URL` is also used by Prisma CLI migration commands and by the shared database package. It is defined only in local or deployment environment configuration and is never logged.
+
 If local container ports differ from the defaults, update both the Docker port variables and the matching port in `DATABASE_URL` or `REDIS_URL` in the ignored `.env` file.
 
 ## Development
@@ -77,6 +82,27 @@ GET /api/v1/health/ready
 
 Liveness returns HTTP `200` whenever the API process is alive and does not depend on PostgreSQL or Redis. Readiness executes PostgreSQL `SELECT 1` and Redis `PING`; it returns HTTP `200` only when both checks pass, otherwise HTTP `503` with per-service `up` or `down` status.
 
+## Prisma and database commands
+
+Validate and format the model-free B0.4 schema, then generate the ignored repository-local client:
+
+```sh
+npm run prisma:format
+npm run prisma:validate
+npm run prisma:generate
+```
+
+With local infrastructure running, prove the complete Prisma-to-PostgreSQL path and inspect migration status:
+
+```sh
+npm run db:check
+npm run prisma:migrate:status
+```
+
+`npm run prisma:migrate:dev` creates and applies migrations in local development only. After a genuine schema change, review its generated SQL and explicitly run `npm run prisma:generate`.
+
+`npm run prisma:migrate:deploy` only applies reviewed, committed migrations and is the migration command for staging and production. It does not create new migrations. B0.4 intentionally has no migration because it has no application models.
+
 ## Validation
 
 ```sh
@@ -89,4 +115,4 @@ npm run build
 
 Use `npm run format` to apply Prettier formatting.
 
-See [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) for the exact implementation boundary.
+See [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) for the exact implementation boundary and [docs/DATABASE_CONVENTIONS.md](docs/DATABASE_CONVENTIONS.md) for persistence and migration rules.

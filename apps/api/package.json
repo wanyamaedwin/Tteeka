@@ -8,9 +8,9 @@
   },
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
-    "dev": "npm run build --workspace @tteeka/config && node --env-file-if-exists=../../.env --import tsx --watch src/main.ts",
+    "dev": "npm run build --workspace @tteeka/config && npm run build --workspace @tteeka/database && node --env-file-if-exists=../../.env --import tsx --watch src/main.ts",
     "start": "node --env-file-if-exists=../../.env dist/main.js",
-    "test": "node --import tsx --test src/health/health.service.spec.ts",
+    "test": "npm run build --workspace @tteeka/config && npm run build --workspace @tteeka/database && node --import tsx --test src/database/database.service.spec.ts src/health/health.service.spec.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {
@@ -18,6 +18,7 @@
     "@nestjs/core": "^11.1.6",
     "@nestjs/platform-express": "^11.1.6",
     "@tteeka/config": "^0.0.0",
+    "@tteeka/database": "^0.0.0",
     "pg": "^8.23.0",
     "redis": "^6.2.0",
     "reflect-metadata": "^0.2.2",

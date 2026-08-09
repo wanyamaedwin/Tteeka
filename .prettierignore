@@ -3,3 +3,4 @@ dist/
 coverage/
 package-lock.json
 *.pdf
+packages/database/src/generated/prisma/
