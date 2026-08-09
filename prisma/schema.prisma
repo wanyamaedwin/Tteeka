@@ -8,3 +8,75 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum MerchantStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+
+  @@map("merchant_status")
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("user_status")
+}
+
+enum MerchantMembershipStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("merchant_membership_status")
+}
+
+model Merchant {
+  id          String         @id(map: "merchants_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  displayName String         @map("display_name") @db.VarChar(160)
+  legalName   String?        @map("legal_name") @db.VarChar(200)
+  phoneE164   String?        @map("phone_e164") @db.VarChar(16)
+  email       String?        @db.VarChar(320)
+  currency    String         @default("UGX") @db.Char(3)
+  timezone    String         @default("Africa/Kampala") @db.VarChar(64)
+  status      MerchantStatus @default(ACTIVE)
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  memberships MerchantMembership[]
+
+  @@index([status], map: "merchants_status_idx")
+  @@map("merchants")
+}
+
+model User {
+  id          String     @id(map: "users_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  displayName String     @map("display_name") @db.VarChar(160)
+  phoneE164   String     @unique(map: "users_phone_e164_key") @map("phone_e164") @db.VarChar(16)
+  email       String?    @unique(map: "users_email_key") @db.VarChar(320)
+  status      UserStatus @default(ACTIVE)
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  memberships MerchantMembership[]
+
+  @@index([status], map: "users_status_idx")
+  @@map("users")
+}
+
+model MerchantMembership {
+  id         String                   @id(map: "merchant_memberships_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  merchantId String                   @map("merchant_id") @db.Uuid
+  userId     String                   @map("user_id") @db.Uuid
+  status     MerchantMembershipStatus @default(ACTIVE)
+  createdAt  DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "merchant_memberships_merchant_id_fkey")
+  user     User     @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "merchant_memberships_user_id_fkey")
+
+  @@unique([merchantId, userId], map: "merchant_memberships_merchant_id_user_id_key")
+  @@index([merchantId, status], map: "merchant_memberships_merchant_id_status_idx")
+  @@index([userId, status], map: "merchant_memberships_user_id_status_idx")
+  @@map("merchant_memberships")
+}

@@ -1,6 +1,6 @@
 # Tteeka Backend
 
-Tteeka is a Uganda-first WhatsApp Commerce Operating System. This repository currently contains the backend foundation through B0.4.
+Tteeka is a Uganda-first WhatsApp Commerce Operating System. This repository currently contains the backend foundation through B1.1.
 
 ## Requirements
 
@@ -17,7 +17,7 @@ With a Node version manager, use the version declared in `.nvmrc` before install
 - `packages/config` — shared schema-validated application configuration
 - `packages/database` — shared Prisma persistence infrastructure
 - `packages/testing` — placeholder for future shared testing utilities
-- `prisma` — Prisma schema and future source-controlled migrations
+- `prisma` — Prisma schema and source-controlled migrations
 - `docs` — current-state and architecture decision documentation
 
 ## Setup
@@ -84,7 +84,7 @@ Liveness returns HTTP `200` whenever the API process is alive and does not depen
 
 ## Prisma and database commands
 
-Validate and format the model-free B0.4 schema, then generate the ignored repository-local client:
+Validate and format the schema, then generate the ignored repository-local client:
 
 ```sh
 npm run prisma:format
@@ -99,9 +99,16 @@ npm run db:check
 npm run prisma:migrate:status
 ```
 
-`npm run prisma:migrate:dev` creates and applies migrations in local development only. After a genuine schema change, review its generated SQL and explicitly run `npm run prisma:generate`.
+Apply the reviewed identity foundation migration in development, then regenerate the client:
 
-`npm run prisma:migrate:deploy` only applies reviewed, committed migrations and is the migration command for staging and production. It does not create new migrations. B0.4 intentionally has no migration because it has no application models.
+```sh
+npm run prisma:migrate:dev
+npm run prisma:generate
+```
+
+For future schema changes, generate a named migration with `npm run prisma:migrate:dev -- --name <migration_name> --create-only`, review the SQL, and only then apply it with `npm run prisma:migrate:dev`.
+
+`npm run prisma:migrate:deploy` only applies reviewed, committed migrations and is the migration command for staging and production. It does not create new migrations. B1.1's `identity_foundation` migration introduces Merchant, User, and MerchantMembership.
 
 ## Validation
 
@@ -115,4 +122,6 @@ npm run build
 
 Use `npm run format` to apply Prettier formatting.
 
-See [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) for the exact implementation boundary and [docs/DATABASE_CONVENTIONS.md](docs/DATABASE_CONVENTIONS.md) for persistence and migration rules.
+The test command includes real identity-schema integration tests and therefore requires the local PostgreSQL infrastructure with the migration applied.
+
+See [docs/IDENTITY_MODEL.md](docs/IDENTITY_MODEL.md) for the identity relationships and storage contracts, [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) for the exact implementation boundary, and [docs/DATABASE_CONVENTIONS.md](docs/DATABASE_CONVENTIONS.md) for persistence and migration rules.

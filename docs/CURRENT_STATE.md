@@ -1,6 +1,6 @@
 # Current State
 
-## B0.4: Prisma foundation, database connectivity, and migration workflow
+## B1.1: Merchant, User, and Membership data model foundation
 
 The repository contains a backend-only npm workspace monorepo targeting Node.js 24 LTS.
 
@@ -56,28 +56,46 @@ B0.4 adds application persistence infrastructure without adding application data
 - unit coverage for the database factory and API/worker lifecycle integration
 - real local PostgreSQL connectivity validation through Prisma
 
+B1.1 adds Tteeka's first domain data foundation:
+
+- the `Merchant` tenant model with contact fields, Uganda-first currency and timezone defaults, and lifecycle status
+- the global `User` human identity model with required unique canonical phone storage and optional unique email storage
+- the `MerchantMembership` model for the many-to-many association between merchants and users
+- `MerchantStatus`, `UserStatus`, and `MerchantMembershipStatus` lifecycle enums
+- native PostgreSQL UUID primary keys with database-generated UUIDv7 defaults
+- `timestamptz(3)` creation and update timestamps
+- a database-enforced unique `(merchant_id, user_id)` membership pair
+- explicitly named status and membership lookup indexes
+- restrictive foreign keys that prevent hard deletion of referenced merchants and users
+- the first genuine, reviewed Prisma migration: `20260809201741_identity_foundation`
+- real PostgreSQL integration coverage for defaults, UUID versions, uniqueness, relationships, foreign keys, deletion restrictions, lifecycle persistence, and physical schema guarantees
+
+The identity relationship and storage contracts are documented in [IDENTITY_MODEL.md](IDENTITY_MODEL.md). B1.1 uses Prisma directly only in schema integration tests; it adds no business persistence boundary or HTTP surface.
+
 The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage therefore does not kill the process: liveness remains independent, while the existing direct `pg` readiness probe reports the outage. The worker constructs the same shared infrastructure but performs no database query, queue work, or business processing.
 
 ## Explicitly not implemented
 
 - frontend applications or UI
-- application data models
-- migrations containing Tteeka domain tables
+- authentication, passwords, password hashes, login, logout, or authorization
+- sessions, refresh sessions, password reset, email verification, or phone OTP
+- roles, permissions, membership roles, or authorization guards
+- invitation workflow
+- merchant, user, or staff APIs, controllers, or business services
 - business persistence repositories
-- authentication or authorization
-- users, merchants, staff, roles, permissions, or sessions
 - customers or catalogue
 - products or inventory
 - orders or payments
 - cash on delivery (COD)
 - delivery, riders, or returns
 - receipts
+- policies or audit domain functionality
 - outbox functionality
 - BullMQ, queues, workers, or background jobs
 - WhatsApp, MTN, or Airtel integrations
 - Swagger or OpenAPI
 - business functionality of any kind
 
-No Tteeka business data models or domain migrations exist. Prisma is exposed only through infrastructure services; there are no business repositories, queries, services, or endpoints.
+Prisma remains exposed through infrastructure services; there are no identity repositories, business queries, services, controllers, or endpoints. No seed users or merchants exist.
 
-These items belong to later steps and are outside B0.4.
+These items belong to later reviewed steps and are outside B1.1. B1.2 has not started.

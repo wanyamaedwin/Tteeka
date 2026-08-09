@@ -10,7 +10,7 @@
   "types": "src/index.ts",
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
-    "test": "node --import tsx --test src/client.spec.ts",
+    "test": "node --env-file-if-exists=../../.env --import tsx --test src/client.spec.ts src/identity.integration.spec.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {

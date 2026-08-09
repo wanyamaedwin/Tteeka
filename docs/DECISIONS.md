@@ -84,3 +84,63 @@
 - **Status:** Accepted
 - **Decision:** The existing direct `pg` readiness probe remains authoritative and is not replaced by Prisma.
 - **Rationale:** Lazy Prisma connectivity preserves B0.3 semantics: a temporary PostgreSQL outage makes readiness fail without terminating API liveness.
+
+## ADR-015: PostgreSQL-generated UUIDv7 domain identifiers
+
+- **Status:** Accepted
+- **Decision:** Core domain identifiers use native PostgreSQL UUID columns with database-generated `uuidv7()` defaults.
+- **Rationale:** UUIDv7 provides globally unique, time-ordered identifiers, while database generation keeps the identifier contract consistent for inserts inside and outside Prisma.
+
+## ADR-016: User is a global human identity
+
+- **Status:** Accepted
+- **Decision:** `User` represents a human independently of any tenant and does not contain `merchantId`.
+- **Rationale:** A person may work with more than one merchant, so embedding tenancy on User would incorrectly constrain the identity and duplicate people.
+
+## ADR-017: MerchantMembership associates Users and Merchants
+
+- **Status:** Accepted
+- **Decision:** `MerchantMembership` provides the many-to-many association between `User` and `Merchant`.
+- **Rationale:** An explicit association preserves global user identity while providing a place for merchant-scoped membership lifecycle and future merchant-scoped access concepts.
+
+## ADR-018: Merchant and User membership pairs are unique
+
+- **Status:** Accepted
+- **Decision:** Each `(merchantId, userId)` pair is unique at the database level.
+- **Rationale:** A second row for the same pair would represent a duplicate membership and create ambiguous lifecycle state.
+
+## ADR-019: Canonical staff phone is initially required
+
+- **Status:** Accepted
+- **Decision:** `User.phoneE164` is required, globally unique, and stores canonical E.164 values in the Uganda-first identity model.
+- **Rationale:** Phone is the initial universal staff identity contact. A future identity service must canonicalize the value before writes; B1.1 defines only the storage contract.
+
+## ADR-020: User email is optional and unique when present
+
+- **Status:** Accepted
+- **Decision:** `User.email` is optional and globally unique for non-null values.
+- **Rationale:** Email is useful but not universal in the initial target context. Future identity services must normalize it before writes; B1.1 does not add CITEXT or normalization logic.
+
+## ADR-021: Roles are absent from the B1.1 identity foundation
+
+- **Status:** Accepted
+- **Decision:** B1.1 stores no role on `User` or `MerchantMembership`.
+- **Rationale:** Roles are merchant-specific and require a separately reviewed authorization model. A global User role would violate tenant semantics, while a premature membership enum would constrain that future design.
+
+## ADR-022: Core identities use lifecycle status and restricted deletion
+
+- **Status:** Accepted
+- **Decision:** Merchant, User, and MerchantMembership use lifecycle statuses, and membership foreign keys restrict physical deletion of referenced merchants and users.
+- **Rationale:** Lifecycle changes preserve identity and membership history. Silent cascade deletion would destroy records needed for later operational and audit reasoning.
+
+## ADR-023: Prisma and PostgreSQL use explicit naming mappings
+
+- **Status:** Accepted
+- **Decision:** Prisma uses PascalCase models and camelCase fields, while physical PostgreSQL objects use plural snake_case tables, snake_case columns, and explicit constraint and index names.
+- **Rationale:** Each layer remains idiomatic, and deterministic physical names make migrations, diagnostics, and constraint errors stable and reviewable.
+
+## ADR-024: Identity foundation is the first genuine migration
+
+- **Status:** Accepted
+- **Decision:** `20260809201741_identity_foundation` is Tteeka's first domain migration.
+- **Rationale:** It introduces the first approved business-meaningful persistence structures without fake infrastructure tables or unrelated later-domain concepts.
