@@ -1,12 +1,14 @@
 import { NestFactory } from '@nestjs/core';
+import type { AppConfig } from '@tteeka/config';
 
 import { AppModule } from './app.module';
-
-const DEFAULT_PORT = 3000;
+import { APP_CONFIG } from './configuration/configuration.module';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
-  await app.listen(DEFAULT_PORT);
+  const config = app.get<AppConfig>(APP_CONFIG);
+  app.enableShutdownHooks();
+  await app.listen(config.apiPort);
 }
 
 void bootstrap().catch((error: unknown) => {

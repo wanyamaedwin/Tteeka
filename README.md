@@ -1,6 +1,6 @@
 # Tteeka Backend
 
-Tteeka is a Uganda-first WhatsApp Commerce Operating System. This repository currently contains only the B0.1 backend engineering foundation.
+Tteeka is a Uganda-first WhatsApp Commerce Operating System. This repository currently contains the backend foundation through B0.3.
 
 ## Requirements
 
@@ -12,9 +12,9 @@ With a Node version manager, use the version declared in `.nvmrc` before install
 
 ## Repository layout
 
-- `apps/api` — minimal NestJS 11 API process
-- `apps/worker` — minimal standalone TypeScript worker process
-- `packages/config` — placeholder for future shared configuration
+- `apps/api` — NestJS 11 API with operational health endpoints
+- `apps/worker` — configuration-aware standalone TypeScript worker process
+- `packages/config` — shared schema-validated application configuration
 - `packages/testing` — placeholder for future shared testing utilities
 - `docs` — current-state and architecture decision documentation
 
@@ -45,7 +45,17 @@ Stop the containers without deleting their persistent volumes:
 npm run infra:down
 ```
 
-The example configuration binds PostgreSQL to `127.0.0.1:5432` and Redis to `127.0.0.1:6379`. Change `POSTGRES_PORT` or `REDIS_PORT` in `.env` if either host port is already in use.
+The example configuration binds PostgreSQL to `127.0.0.1:5432` and Redis to `127.0.0.1:6379`. `POSTGRES_*` and `REDIS_PORT` configure the local Docker containers.
+
+Application configuration is validated at startup:
+
+- `NODE_ENV` selects `development`, `test`, `staging`, or `production`
+- `API_PORT` selects the API listen port
+- `DATABASE_URL` configures the PostgreSQL readiness probe
+- `REDIS_URL` configures the Redis readiness probe
+- `INFRA_HEALTH_TIMEOUT_MS` limits each infrastructure check
+
+If local container ports differ from the defaults, update both the Docker port variables and the matching port in `DATABASE_URL` or `REDIS_URL` in the ignored `.env` file.
 
 ## Development
 
@@ -54,7 +64,18 @@ npm run dev:api
 npm run dev:worker
 ```
 
-The API listens on port `3000`. The worker currently prints a startup message; queue processing has not been implemented.
+The API listens on `API_PORT`, which defaults to `3000`. The worker validates the same shared configuration but does not process queues or jobs.
+
+## Health endpoints
+
+With the API running, these endpoints are available:
+
+```text
+GET /api/v1/health/live
+GET /api/v1/health/ready
+```
+
+Liveness returns HTTP `200` whenever the API process is alive and does not depend on PostgreSQL or Redis. Readiness executes PostgreSQL `SELECT 1` and Redis `PING`; it returns HTTP `200` only when both checks pass, otherwise HTTP `503` with per-service `up` or `down` status.
 
 ## Validation
 

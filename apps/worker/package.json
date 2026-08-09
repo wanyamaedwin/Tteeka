@@ -8,9 +8,12 @@
   },
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
-    "dev": "tsx watch src/main.ts",
-    "start": "node dist/main.js",
-    "test": "node --test",
+    "dev": "npm run build --workspace @tteeka/config && node --env-file-if-exists=../../.env --import tsx --watch src/main.ts",
+    "start": "node --env-file-if-exists=../../.env dist/main.js",
+    "test": "npm run build --workspace @tteeka/config && node --import tsx --test src/worker.spec.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "dependencies": {
+    "@tteeka/config": "^0.0.0"
   }
 }

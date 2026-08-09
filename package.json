@@ -11,7 +11,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build --workspace @tteeka/config && npm run build --workspace @tteeka/testing && npm run build --workspace @tteeka/api && npm run build --workspace @tteeka/worker",
     "dev:api": "npm run dev --workspace @tteeka/api",
     "dev:worker": "npm run dev --workspace @tteeka/worker",
     "format": "prettier --write .",

@@ -10,7 +10,6 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc --project tsconfig.json",
-    "test": "node --test",
     "typecheck": "tsc --noEmit --project tsconfig.json"
   }
 }

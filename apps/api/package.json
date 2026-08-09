@@ -8,16 +8,22 @@
   },
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
-    "dev": "tsx watch src/main.ts",
-    "start": "node dist/main.js",
-    "test": "node --test",
+    "dev": "npm run build --workspace @tteeka/config && node --env-file-if-exists=../../.env --import tsx --watch src/main.ts",
+    "start": "node --env-file-if-exists=../../.env dist/main.js",
+    "test": "node --import tsx --test src/health/health.service.spec.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",
     "@nestjs/core": "^11.1.6",
     "@nestjs/platform-express": "^11.1.6",
+    "@tteeka/config": "^0.0.0",
+    "pg": "^8.23.0",
+    "redis": "^6.2.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.21.0"
   }
 }

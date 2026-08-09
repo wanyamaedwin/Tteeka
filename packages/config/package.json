@@ -2,15 +2,18 @@
   "name": "@tteeka/config",
   "version": "0.0.0",
   "private": true,
-  "description": "Shared configuration package placeholder",
+  "description": "Shared validated application configuration",
   "engines": {
     "node": ">=24 <25"
   },
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "types": "src/index.ts",
   "scripts": {
-    "build": "tsc --project tsconfig.json",
-    "test": "node --test",
+    "build": "tsc --project tsconfig.build.json",
+    "test": "node --import tsx --test src/config.spec.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
   }
 }
