@@ -34,12 +34,15 @@ function config(nodeEnv: AppConfig['nodeEnv']): AppConfig {
 
 function responseRecorder() {
   const cookies: unknown[][] = [];
+  const clearedCookies: unknown[][] = [];
   const headers = new Map<string, string>();
   return {
     cookies,
+    clearedCookies,
     headers,
     response: {
       cookie: (...args: unknown[]) => cookies.push(args),
+      clearCookie: (...args: unknown[]) => clearedCookies.push(args),
       setHeader: (name: string, value: string) => headers.set(name, value),
     },
   };
@@ -132,4 +135,86 @@ void test('/me returns only the safe principal and sets private cache headers', 
   assert.equal(recorder.headers.get('Cache-Control'), 'no-store');
   assert.equal(recorder.headers.get('Pragma'), 'no-cache');
   assert.equal(recorder.cookies.length, 0);
+});
+
+for (const [nodeEnv, secure] of [
+  ['development', false],
+  ['test', false],
+  ['staging', true],
+  ['production', true],
+] as const) {
+  void test(`logout clears the Session cookie with secure=${secure} in ${nodeEnv}`, async () => {
+    const calls: unknown[] = [];
+    const authService = {
+      logout: (token: unknown) => {
+        calls.push(token);
+        return Promise.resolve();
+      },
+    } as unknown as AuthService;
+    const recorder = responseRecorder();
+    const controller = new AuthController(authService, config(nodeEnv));
+
+    await controller.logout(
+      { cookies: { [SESSION_COOKIE_NAME]: 'synthetic-cookie' } } as never,
+      recorder.response,
+    );
+
+    assert.deepEqual(calls, ['synthetic-cookie']);
+    assert.deepEqual(recorder.clearedCookies, [
+      [
+        SESSION_COOKIE_NAME,
+        {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure,
+          path: SESSION_COOKIE_PATH,
+        },
+      ],
+    ]);
+    assert.equal(recorder.headers.get('Cache-Control'), 'no-store');
+    assert.equal(recorder.headers.get('Pragma'), 'no-cache');
+    assert.equal(recorder.cookies.length, 0);
+  });
+}
+
+void test('logout does not clear the cookie when revocation fails', async () => {
+  const authService = {
+    logout: () => Promise.reject(new Error('Synthetic store failure')),
+  } as unknown as AuthService;
+  const recorder = responseRecorder();
+  const controller = new AuthController(authService, config('test'));
+
+  await assert.rejects(
+    controller.logout({ cookies: {} } as never, recorder.response),
+    { message: 'Synthetic store failure' },
+  );
+  assert.equal(recorder.clearedCookies.length, 0);
+  assert.equal(recorder.headers.size, 0);
+});
+
+void test('logout-all uses the authenticated principal and clears only after success', async () => {
+  const calls: unknown[] = [];
+  const authService = {
+    logoutAll: (auth: unknown) => {
+      calls.push(auth);
+      return Promise.resolve();
+    },
+  } as unknown as AuthService;
+  const recorder = responseRecorder();
+  const controller = new AuthController(authService, config('test'));
+  const principal = {
+    user: ISSUED_LOGIN.user,
+    session: {
+      id: '018f0000-0000-7000-8000-000000000099',
+      expiresAt: EXPIRES_AT,
+    },
+  };
+
+  await controller.logoutAll(principal, recorder.response);
+
+  assert.deepEqual(calls, [principal]);
+  assert.equal(recorder.clearedCookies.length, 1);
+  assert.equal(recorder.cookies.length, 0);
+  assert.equal(recorder.headers.get('Cache-Control'), 'no-store');
+  assert.equal(recorder.headers.get('Pragma'), 'no-cache');
 });

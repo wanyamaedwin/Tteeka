@@ -1,6 +1,6 @@
 # Current State
 
-## B1.6: Authenticated request resolution
+## B1.7: Logout, logout-all, and Session revocation
 
 The repository contains a backend-only npm workspace monorepo targeting Node.js 24 LTS.
 
@@ -159,14 +159,31 @@ B1.6 adds authenticated request resolution without a schema migration:
 
 See [AUTHENTICATED_REQUESTS.md](AUTHENTICATED_REQUESTS.md) for the complete resolution and deferred-security boundary.
 
+B1.7 adds explicit Session revocation without a schema migration:
+
+- unguarded, idempotent `POST /api/v1/auth/logout` for current-Session revocation and safe stale-cookie clearing
+- guarded `POST /api/v1/auth/logout-all` using only the trusted `AuthenticatedPrincipal` global User ID
+- conditional current-Session revocation by SHA-256 token hash
+- one conditional bulk update for every unrevoked Session belonging to the User
+- current Session and expired-but-unrevoked Session inclusion in logout-all
+- first-revocation timestamp preservation for already-revoked Sessions
+- Session-history preservation with no logout hard deletion or automatic cleanup
+- `tteeka_session` removal with shared Path, HttpOnly, SameSite, Secure, and host-only policy
+- no-store/no-cache 204 responses with no response body or Session count
+- other-User isolation and support for authenticated Users with zero MerchantMemberships
+- PostgreSQL remaining authoritative with no Redis Session state
+
+See [SESSION_REVOCATION.md](SESSION_REVOCATION.md) for the complete behavior and security boundary.
+
 The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage therefore does not kill the process: liveness remains independent, while the existing direct `pg` readiness probe reports the outage. The worker constructs the same shared infrastructure but performs no database query, queue work, or business processing.
 
 ## Explicitly not implemented
 
 - frontend applications or UI
-- logout or logout-all
+- Session listing or device/session management APIs
+- logout-other-sessions-only or administrator Session revocation
 - account registration or password-change APIs
-- Session listing, revocation, deletion, or management APIs
+- Session deletion, automatic cleanup, or retention jobs
 - JWTs, bearer/access tokens, or refresh tokens
 - Session renewal, rotation, sliding expiration, retention cleanup, or Redis Session storage
 - a global authentication guard or global public/private route metadata
@@ -198,4 +215,4 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 
 Prisma remains exposed through infrastructure services and the narrow Auth store; there are no general identity repositories or business APIs. No seed users or merchants exist.
 
-These items belong to later reviewed steps and are outside B1.6. B1.7 has not started.
+These items belong to later reviewed steps and are outside B1.7. B1.8 has not started.

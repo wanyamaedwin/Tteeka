@@ -570,3 +570,111 @@
 - **Status:** Accepted
 - **Decision:** B1.6 introduces no CSRF mechanism, and one must be designed before production authenticated state-changing browser endpoints.
 - **Rationale:** `/me` is read-only, but cookie-authenticated write APIs require an explicit reviewed cross-site request policy.
+
+## ADR-096: Logout revokes rather than deletes Sessions
+
+- **Status:** Accepted
+- **Decision:** Logout operations set `revokedAt` and retain Session rows.
+- **Rationale:** Revocation immediately invalidates credentials while preserving security history for a future retention policy.
+
+## ADR-097: The first revocation timestamp is authoritative
+
+- **Status:** Accepted
+- **Decision:** Revocation updates only Sessions whose `revokedAt` is null.
+- **Rationale:** Repeated commands must not overwrite the original lifecycle fact.
+
+## ADR-098: Current logout is unguarded and idempotent
+
+- **Status:** Accepted
+- **Decision:** `POST /auth/logout` does not use `SessionAuthGuard` and returns 204 after safe missing, malformed, stale, expired, revoked, unknown, or DISABLED-User cookie handling.
+- **Rationale:** A client must always be able to discard unusable local credentials without learning server-side Session state.
+
+## ADR-099: Invalid logout cookie structure avoids PostgreSQL
+
+- **Status:** Accepted
+- **Decision:** Missing and malformed current-logout cookies trigger neither hashing nor persistence access.
+- **Rationale:** No server-side Session can be identified from invalid input, so database work is unnecessary.
+
+## ADR-100: Valid logout tokens are hashed before persistence
+
+- **Status:** Accepted
+- **Decision:** Current logout passes only `hashSessionToken(rawToken)` to the Auth store.
+- **Rationale:** Raw bearer secrets must never cross the persistence boundary.
+
+## ADR-101: Zero-row current revocation is successful
+
+- **Status:** Accepted
+- **Decision:** Unknown and already-revoked valid token hashes still produce HTTP 204.
+- **Rationale:** Idempotence avoids Session-existence and lifecycle disclosure.
+
+## ADR-102: Revocation infrastructure failures propagate
+
+- **Status:** Accepted
+- **Decision:** Failure to perform required persistence work follows 500-class handling rather than returning 204 or 401.
+- **Rationale:** The server cannot truthfully confirm logout when durable revocation is unconfirmed.
+
+## ADR-103: Cookie clearing follows confirmed server work
+
+- **Status:** Accepted
+- **Decision:** A logout cookie is cleared only after any required revocation succeeds.
+- **Rationale:** Retaining the browser credential on failure allows a meaningful retry.
+
+## ADR-104: Logout-all requires authenticated Session context
+
+- **Status:** Accepted
+- **Decision:** `POST /auth/logout-all` uses the route-scoped `SessionAuthGuard`.
+- **Rationale:** Bulk revocation must establish which User owns the target Sessions.
+
+## ADR-105: Logout-all trusts only AuthenticatedPrincipal identity
+
+- **Status:** Accepted
+- **Decision:** The User ID comes only from `request.auth`, never client request data.
+- **Rationale:** A caller must not choose another User's revocation scope.
+
+## ADR-106: Logout-all revokes every unrevoked User Session
+
+- **Status:** Accepted
+- **Decision:** One bulk update includes the current Session, other Sessions, and expired-but-unrevoked rows for the global User.
+- **Rationale:** Logout-all expresses intent to invalidate every remaining bearer credential, regardless of expiry.
+
+## ADR-107: Logout-all preserves earlier revocations
+
+- **Status:** Accepted
+- **Decision:** Already-revoked Sessions are excluded from the bulk update.
+- **Rationale:** Their original `revokedAt` remains authoritative.
+
+## ADR-108: Logout-all isolates other Users
+
+- **Status:** Accepted
+- **Decision:** Bulk revocation filters by the authenticated global User ID.
+- **Rationale:** Session ownership, not tenant membership, defines the revocation boundary.
+
+## ADR-109: Logout responses expose no Session count
+
+- **Status:** Accepted
+- **Decision:** Successful logout endpoints return 204 with no body or affected-row count.
+- **Rationale:** Clients need only completion, and counts unnecessarily disclose internal state.
+
+## ADR-110: Logout issues no replacement Session
+
+- **Status:** Accepted
+- **Decision:** Logout neither generates nor rotates tokens and never creates a replacement Session.
+- **Rationale:** Revocation must terminate credentials rather than silently renew them.
+
+## ADR-111: Logout is independent of merchant authorization
+
+- **Status:** Accepted
+- **Decision:** Neither logout operation resolves Merchant, Membership, Role, or Permission data.
+- **Rationale:** Session lifecycle belongs to global User authentication, not tenant authorization.
+
+## ADR-112: Session cleanup remains deferred
+
+- **Status:** Accepted
+- **Decision:** B1.7 introduces no deletion or automatic retention process for revoked or expired Sessions.
+- **Rationale:** Retention requires separate privacy, audit, and operational policy.
+
+## ADR-113: Logout uses POST while broader CSRF work remains deferred
+
+- **Status:** Accepted
+- **Decision:** Both logout commands use POST and B1.7 adds no full CSRF framework.
+- **Rationale:** State changes must not use GET, while production business-write CSRF hardening requires separate review.

@@ -9,6 +9,7 @@ import {
   createSessionToken,
   hashSessionToken,
   hashPassword,
+  isSessionTokenFormat,
   passwordNeedsRehash,
   verifyPassword,
 } from '@tteeka/security';
@@ -124,5 +125,23 @@ export class AuthService {
       user: { id: session.user.id, displayName: session.user.displayName },
       session: { id: session.id, expiresAt: session.expiresAt },
     };
+  }
+
+  public async logout(
+    rawToken: unknown,
+    revokedAt = new Date(),
+  ): Promise<void> {
+    if (!isSessionTokenFormat(rawToken)) return;
+    await this.store.revokeSessionByTokenHash(
+      hashSessionToken(rawToken),
+      revokedAt,
+    );
+  }
+
+  public async logoutAll(
+    auth: AuthenticatedPrincipal,
+    revokedAt = new Date(),
+  ): Promise<void> {
+    await this.store.revokeAllSessionsForUser(auth.user.id, revokedAt);
   }
 }

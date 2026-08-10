@@ -9,6 +9,7 @@ import {
   Inject,
   Ip,
   Post,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -17,10 +18,15 @@ import type { AppConfig } from '@tteeka/config';
 import { APP_CONFIG } from '../configuration/configuration.module';
 import { AuthService } from './auth.service';
 import type { AuthenticatedPrincipal } from './authenticated-principal';
+import type { AuthenticatedRequest } from './authenticated-principal';
 import { CurrentAuth } from './current-auth.decorator';
 import { loginRequestSchema } from './login-request';
 import { normalizeUgandaPhone } from './uganda-phone';
-import { SESSION_COOKIE_NAME, SESSION_COOKIE_PATH } from './session-cookie';
+import {
+  readSessionCookie,
+  SESSION_COOKIE_NAME,
+  sessionCookieOptions,
+} from './session-cookie';
 import { SessionAuthGuard } from './session-auth.guard';
 
 export { SESSION_COOKIE_NAME, SESSION_COOKIE_PATH } from './session-cookie';
@@ -40,8 +46,20 @@ interface LoginHttpResponse {
   setHeader(name: string, value: string): void;
 }
 
-interface AuthenticatedHttpResponse {
+interface PrivateHttpResponse {
   setHeader(name: string, value: string): void;
+}
+
+interface AuthenticatedHttpResponse extends PrivateHttpResponse {
+  clearCookie(
+    name: string,
+    options: ReturnType<typeof sessionCookieOptions>,
+  ): void;
+}
+
+function setPrivateCacheHeaders(response: PrivateHttpResponse): void {
+  response.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Pragma', 'no-cache');
 }
 
 @Controller('api/v1/auth')
@@ -84,21 +102,44 @@ export class AuthController {
       },
     );
     response.cookie(SESSION_COOKIE_NAME, login.token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure:
-        this.config.nodeEnv === 'staging' ||
-        this.config.nodeEnv === 'production',
-      path: SESSION_COOKIE_PATH,
+      ...sessionCookieOptions(this.config.nodeEnv),
       expires: login.session.expiresAt,
     });
-    response.setHeader('Cache-Control', 'no-store');
-    response.setHeader('Pragma', 'no-cache');
+    setPrivateCacheHeaders(response);
 
     return {
       user: login.user,
       session: { expiresAt: login.session.expiresAt.toISOString() },
     };
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  public async logout(
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: AuthenticatedHttpResponse,
+  ): Promise<void> {
+    await this.authService.logout(readSessionCookie(request));
+    response.clearCookie(
+      SESSION_COOKIE_NAME,
+      sessionCookieOptions(this.config.nodeEnv),
+    );
+    setPrivateCacheHeaders(response);
+  }
+
+  @Post('logout-all')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(SessionAuthGuard)
+  public async logoutAll(
+    @CurrentAuth() auth: AuthenticatedPrincipal,
+    @Res({ passthrough: true }) response: AuthenticatedHttpResponse,
+  ): Promise<void> {
+    await this.authService.logoutAll(auth);
+    response.clearCookie(
+      SESSION_COOKIE_NAME,
+      sessionCookieOptions(this.config.nodeEnv),
+    );
+    setPrivateCacheHeaders(response);
   }
 
   @Get('me')
@@ -110,8 +151,7 @@ export class AuthController {
     user: { id: string; displayName: string };
     session: { expiresAt: string };
   } {
-    response.setHeader('Cache-Control', 'no-store');
-    response.setHeader('Pragma', 'no-cache');
+    setPrivateCacheHeaders(response);
     return {
       user: auth.user,
       session: { expiresAt: auth.session.expiresAt.toISOString() },

@@ -2,7 +2,7 @@
 
 ## Purpose and boundary
 
-B1.4 established persistence and cryptographic primitives for opaque server-side Sessions. B1.5 now issues a fresh Session after successful phone-and-password login and transports its raw token in a hardened HttpOnly cookie. A Session remains dependent security data belonging to one global User, and PostgreSQL remains authoritative for existence, expiry, revocation, and metadata.
+B1.4 established persistence and cryptographic primitives for opaque server-side Sessions. B1.5 issues a fresh Session after successful phone-and-password login, B1.6 resolves it, and B1.7 now actively uses `revokedAt` for current logout and logout-all. A Session remains dependent security data belonging to one global User, and PostgreSQL remains authoritative for existence, expiry, revocation, and metadata.
 
 ## Opaque architecture and User scope
 
@@ -28,7 +28,9 @@ A User may have many Sessions, and every Session belongs to exactly one User. Se
 
 Expiry remains absolute: request use and `lastUsedAt` updates never extend `expiresAt`. B1.6 performs no Session renewal, token rotation, or cookie renewal. Revoked and expired rows remain persisted.
 
-Expired and revoked rows remain stored as security/session history until a future explicit retention policy removes them. They are not automatically deleted.
+Logout changes only an unrevoked row from `revokedAt = null` to one server timestamp. Conditional updates preserve the first revocation timestamp and never delete the row. Logout-all applies one logical timestamp to every still-unrevoked Session for the global User, including the current Session and expired-but-unrevoked rows, while already-revoked rows keep their prior timestamps.
+
+Expired and revoked rows remain stored as security/session history until a future explicit retention policy removes them. They are not automatically deleted, and no cleanup job exists.
 
 ## Token generation and storage
 
@@ -50,4 +52,4 @@ User-Agent and IP address are optional security/diagnostic metadata only. They a
 
 PostgreSQL—not Redis—is Session authority. Redis Session storage and caching are absent so revocation and expiry facts have one durable source of truth.
 
-B1.5 implements password verification, Session issuance, and the `tteeka_session` HttpOnly cookie with SameSite=Lax, environment-derived Secure behavior, `/api/v1` path, and expiry matching the stored Session. B1.6 resolves that cookie through a route-scoped Session guard and PostgreSQL lookup for `/api/v1/auth/me`; see [AUTHENTICATED_REQUESTS.md](AUTHENTICATED_REQUESTS.md). Future reviewed checkpoints may implement logout/revocation, logout-all, Session listing, rotation, renewal, retention cleanup, and privacy policy. JWTs, refresh tokens, bearer authentication, and Redis Session authority remain absent.
+B1.5 implements password verification, Session issuance, and the `tteeka_session` HttpOnly cookie with SameSite=Lax, environment-derived Secure behavior, `/api/v1` path, and expiry matching the stored Session. B1.6 resolves that cookie through a route-scoped Session guard and PostgreSQL lookup. B1.7 implements revocation and matching cookie removal; see [AUTHENTICATED_REQUESTS.md](AUTHENTICATED_REQUESTS.md) and [SESSION_REVOCATION.md](SESSION_REVOCATION.md). Future reviewed checkpoints may implement Session listing, management, rotation, renewal, retention cleanup, and privacy policy. JWTs, refresh tokens, bearer authentication, and Redis Session authority remain absent.

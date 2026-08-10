@@ -67,6 +67,8 @@ B1.5 permits only an ACTIVE User with a verified PasswordCredential to receive a
 
 B1.6 resolves an ACTIVE User from an authenticated Session and exposes only User ID and display name in request authentication context. MerchantMembership remains a separate, unresolved authorization concern; request authentication does not select Merchant, Membership, Role, or Permission data.
 
+B1.7 logout-all targets every unrevoked Session belonging to that global User identity. MerchantMembership is not involved, so an authenticated ACTIVE User with zero Memberships can revoke all of their Sessions.
+
 ## MerchantMembership
 
 `MerchantMembership` represents one User belonging to one Merchant.

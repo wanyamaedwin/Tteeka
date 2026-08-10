@@ -41,12 +41,18 @@ function storeFor(found: AuthenticationSession | null): {
   store: AuthStore;
   lookups: string[];
   touches: unknown[][];
+  revocations: unknown[][];
+  bulkRevocations: unknown[][];
 } {
   const lookups: string[] = [];
   const touches: unknown[][] = [];
+  const revocations: unknown[][] = [];
+  const bulkRevocations: unknown[][] = [];
   return {
     lookups,
     touches,
+    revocations,
+    bulkRevocations,
     store: {
       findUserForPasswordLogin: () => Promise.resolve(null),
       updateCredentialHash: () => Promise.resolve(),
@@ -57,6 +63,14 @@ function storeFor(found: AuthenticationSession | null): {
       },
       touchSessionLastUsedAt: (...args) => {
         touches.push(args);
+        return Promise.resolve();
+      },
+      revokeSessionByTokenHash: (...args) => {
+        revocations.push(args);
+        return Promise.resolve();
+      },
+      revokeAllSessionsForUser: (...args) => {
+        bulkRevocations.push(args);
         return Promise.resolve();
       },
     },
@@ -148,5 +162,68 @@ void test('lookup infrastructure failures are not converted to HTTP 401', async 
   await assert.rejects(
     service(fake.store).authenticateSessionToken(RAW_TOKEN, NOW),
     { message: 'Synthetic database failure' },
+  );
+});
+
+for (const [description, token] of [
+  ['missing', undefined],
+  ['empty', ''],
+  ['malformed', 'malformed'],
+  ['oversized', 'A'.repeat(2000)],
+] as const) {
+  void test(`${description} logout token succeeds without persistence access`, async () => {
+    const fake = storeFor(null);
+    await service(fake.store).logout(token, NOW);
+    assert.equal(fake.revocations.length, 0);
+    assert.equal(fake.lookups.length, 0);
+    assert.equal(fake.touches.length, 0);
+  });
+}
+
+void test('current logout hashes a valid token and passes one revocation timestamp', async () => {
+  const fake = storeFor(null);
+  await service(fake.store).logout(RAW_TOKEN, NOW);
+  assert.deepEqual(fake.revocations, [[hashSessionToken(RAW_TOKEN), NOW]]);
+  assert.equal(fake.revocations.flat().includes(RAW_TOKEN), false);
+  assert.equal(fake.lookups.length, 0);
+  assert.equal(fake.touches.length, 0);
+});
+
+void test('current logout propagates persistence failure', async () => {
+  const fake = storeFor(null);
+  fake.store.revokeSessionByTokenHash = () =>
+    Promise.reject(new Error('Synthetic revocation failure'));
+  await assert.rejects(service(fake.store).logout(RAW_TOKEN, NOW), {
+    message: 'Synthetic revocation failure',
+  });
+});
+
+void test('logout-all uses only the trusted principal User id and one timestamp', async () => {
+  const fake = storeFor(null);
+  const principal = {
+    user: session().user,
+    session: { id: session().id, expiresAt: session().expiresAt },
+  };
+  await service(fake.store).logoutAll(principal, NOW);
+  assert.deepEqual(fake.bulkRevocations, [[principal.user.id, NOW]]);
+  assert.equal(fake.lookups.length, 0);
+  assert.equal(fake.touches.length, 0);
+  assert.equal(fake.revocations.length, 0);
+});
+
+void test('logout-all propagates persistence failure', async () => {
+  const fake = storeFor(null);
+  fake.store.revokeAllSessionsForUser = () =>
+    Promise.reject(new Error('Synthetic bulk revocation failure'));
+  const found = session();
+  await assert.rejects(
+    service(fake.store).logoutAll(
+      {
+        user: { id: found.user.id, displayName: found.user.displayName },
+        session: { id: found.id, expiresAt: found.expiresAt },
+      },
+      NOW,
+    ),
+    { message: 'Synthetic bulk revocation failure' },
   );
 });

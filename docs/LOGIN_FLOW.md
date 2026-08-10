@@ -2,7 +2,7 @@
 
 ## Purpose and endpoint
 
-B1.5 introduced Tteeka's first authentication command: `POST /api/v1/auth/login`. It accepts only a JSON `phone` and `password`, validates both with Zod, authenticates the global User, creates a fresh opaque Session, and returns HTTP 200 with safe User and expiry information. B1.6 can now resolve that cookie on explicitly protected routes, starting with `GET /api/v1/auth/me`; logout, rate limiting, and authorization remain deferred.
+B1.5 introduced Tteeka's first authentication command: `POST /api/v1/auth/login`. It accepts only a JSON `phone` and `password`, validates both with Zod, authenticates the global User, creates a fresh opaque Session, and returns HTTP 200 with safe User and expiry information. B1.6 resolves that cookie on explicitly protected routes, and B1.7 can now revoke issued Sessions through logout and logout-all. Rate limiting and authorization remain deferred.
 
 ## Phone identity and validation
 
@@ -24,7 +24,7 @@ After successful verification, `passwordNeedsRehash` detects an outdated Argon2 
 
 ## Session issuance and lifetime
 
-Every successful login calls `createSessionToken()` and creates a new Session; client-provided Session IDs and existing Sessions are never reused or revoked. Multiple successful logins therefore create distinct unrevoked rows. `SESSION_TTL_SECONDS` configures the single initial staff-web lifetime from 300 seconds through 30 days and defaults to 43,200 seconds (12 hours).
+Every successful login calls `createSessionToken()` and creates a new Session; client-provided Session IDs and existing Sessions are never reused or automatically revoked. Multiple successful logins therefore create distinct unrevoked rows. A later explicit logout can revoke one Session, and logout-all can revoke all unrevoked Sessions for the User; a new login itself still does neither. `SESSION_TTL_SECONDS` configures the single initial staff-web lifetime from 300 seconds through 30 days and defaults to 43,200 seconds (12 hours).
 
 One `issuedAt` instant determines `expiresAt = issuedAt + SESSION_TTL_SECONDS`. The exact same Date drives the required database `expiresAt` and cookie expiry. PostgreSQL stores only `tokenHash`; the raw opaque token exists transiently until cookie serialization and is never logged, returned in JSON, or persisted.
 
@@ -45,4 +45,4 @@ The framework-resolved client IP is stored only when it fits 45 characters. `X-F
 
 ## Explicitly deferred
 
-B1.6 adds route-scoped authenticated Session lookup and `/me` without changing login issuance. It does not implement logout, logout-all, Session listing/revocation, global authentication, authorization guards, renewal, rotation, sliding expiry, registration, invitations, email login, password reset/change APIs, OTP, MFA, passkeys, rate limiting, brute-force protection, account lockout, audit/outbox, Redis Session storage, or Merchant/Role/Permission resolution. See [AUTHENTICATED_REQUESTS.md](AUTHENTICATED_REQUESTS.md).
+B1.6 adds route-scoped authenticated Session lookup and `/me` without changing login issuance. B1.7 adds explicit revocation without changing the independent-Session login contract. Session listing/management, global authentication, authorization guards, renewal, rotation, sliding expiry, registration, invitations, email login, password reset/change APIs, OTP, MFA, passkeys, rate limiting, brute-force protection, account lockout, audit/outbox, Redis Session storage, and Merchant/Role/Permission resolution remain absent. See [AUTHENTICATED_REQUESTS.md](AUTHENTICATED_REQUESTS.md) and [SESSION_REVOCATION.md](SESSION_REVOCATION.md).

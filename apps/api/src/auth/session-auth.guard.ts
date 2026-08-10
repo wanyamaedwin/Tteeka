@@ -9,13 +9,7 @@ import { isSessionTokenFormat } from '@tteeka/security';
 
 import type { AuthenticatedRequest } from './authenticated-principal';
 import { AuthService, UNAUTHORIZED_MESSAGE } from './auth.service';
-import { SESSION_COOKIE_NAME } from './session-cookie';
-
-function sessionCookie(request: AuthenticatedRequest): unknown {
-  const cookies: unknown = request.cookies;
-  if (typeof cookies !== 'object' || cookies === null) return undefined;
-  return (cookies as Readonly<Record<string, unknown>>)[SESSION_COOKIE_NAME];
-}
+import { readSessionCookie } from './session-cookie';
 
 @Injectable()
 export class SessionAuthGuard implements CanActivate {
@@ -25,7 +19,7 @@ export class SessionAuthGuard implements CanActivate {
 
   public async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const token = sessionCookie(request);
+    const token = readSessionCookie(request);
     if (!isSessionTokenFormat(token)) {
       throw new UnauthorizedException(UNAUTHORIZED_MESSAGE);
     }

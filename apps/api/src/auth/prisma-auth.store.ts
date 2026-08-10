@@ -72,4 +72,24 @@ export class PrismaAuthStore implements AuthStore {
       data: { lastUsedAt: now },
     });
   }
+
+  public async revokeSessionByTokenHash(
+    tokenHash: string,
+    revokedAt: Date,
+  ): Promise<void> {
+    await this.database.client.session.updateMany({
+      where: { tokenHash, revokedAt: null },
+      data: { revokedAt },
+    });
+  }
+
+  public async revokeAllSessionsForUser(
+    userId: string,
+    revokedAt: Date,
+  ): Promise<void> {
+    await this.database.client.session.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt },
+    });
+  }
 }

@@ -48,4 +48,6 @@ export interface AuthStore {
     lastUsedAtThreshold: Date,
     now: Date,
   ): Promise<void>;
+  revokeSessionByTokenHash(tokenHash: string, revokedAt: Date): Promise<void>;
+  revokeAllSessionsForUser(userId: string, revokedAt: Date): Promise<void>;
 }

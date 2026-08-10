@@ -10,7 +10,7 @@
     "build": "tsc --project tsconfig.build.json",
     "dev": "npm run build --workspace @tteeka/config && npm run build --workspace @tteeka/database && node --env-file-if-exists=../../.env --import tsx --watch src/main.ts",
     "start": "node --env-file-if-exists=../../.env dist/main.js",
-    "test": "npm run build --workspace @tteeka/config && npm run build --workspace @tteeka/security && npm run build --workspace @tteeka/database && node --env-file-if-exists=../../.env --import tsx --test src/database/database.service.spec.ts src/health/health.service.spec.ts src/auth/uganda-phone.spec.ts src/auth/auth.controller.spec.ts src/auth/auth.service.spec.ts src/auth/session-auth.guard.spec.ts src/auth/auth.e2e.spec.ts src/auth/session-auth.e2e.spec.ts",
+    "test": "npm run build --workspace @tteeka/config && npm run build --workspace @tteeka/security && npm run build --workspace @tteeka/database && node --env-file-if-exists=../../.env --import tsx --test src/database/database.service.spec.ts src/health/health.service.spec.ts src/auth/uganda-phone.spec.ts src/auth/auth.controller.spec.ts src/auth/auth.service.spec.ts src/auth/prisma-auth.store.spec.ts src/auth/session-auth.guard.spec.ts src/auth/auth.e2e.spec.ts src/auth/session-auth.e2e.spec.ts src/auth/session-revocation.e2e.spec.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {
