@@ -61,6 +61,20 @@ enum ProductVariantStatus {
   @@map("product_variant_status")
 }
 
+enum InventoryState {
+  AVAILABLE
+
+  @@map("inventory_state")
+}
+
+enum InventoryMovementType {
+  RECEIPT
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+
+  @@map("inventory_movement_type")
+}
+
 model Merchant {
   id          String         @id(map: "merchants_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
   displayName String         @map("display_name") @db.VarChar(160)
@@ -73,9 +87,11 @@ model Merchant {
   createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  memberships MerchantMembership[]
-  roles       Role[]
-  products    Product[]
+  memberships            MerchantMembership[]
+  roles                  Role[]
+  products               Product[]
+  inventoryBalances      InventoryBalance[]
+  inventoryLedgerEntries InventoryLedgerEntry[]
 
   @@index([status], map: "merchants_status_idx")
   @@map("merchants")
@@ -119,8 +135,10 @@ model ProductVariant {
   createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  product      Product               @relation(fields: [merchantId, productId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "product_variants_merchant_id_product_id_fkey")
-  priceHistory VariantPriceHistory[]
+  product                Product                @relation(fields: [merchantId, productId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "product_variants_merchant_id_product_id_fkey")
+  priceHistory           VariantPriceHistory[]
+  inventoryBalances      InventoryBalance[]
+  inventoryLedgerEntries InventoryLedgerEntry[]
 
   @@unique([merchantId, id], map: "product_variants_merchant_id_id_key")
   @@unique([merchantId, sku], map: "product_variants_merchant_id_sku_key")
@@ -128,6 +146,45 @@ model ProductVariant {
   @@index([merchantId, productId, sku, id], map: "product_variants_merchant_id_product_id_sku_id_idx")
   @@index([merchantId, productId, status, sku, id], map: "product_variants_merchant_id_product_id_status_sku_id_idx")
   @@map("product_variants")
+}
+
+model InventoryBalance {
+  merchantId String         @map("merchant_id") @db.Uuid
+  variantId  String         @map("variant_id") @db.Uuid
+  state      InventoryState
+  quantity   BigInt         @default(0)
+  updatedAt  DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  merchant Merchant       @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "inventory_balances_merchant_id_fkey")
+  variant  ProductVariant @relation(fields: [merchantId, variantId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "inventory_balances_merchant_id_variant_id_fkey")
+
+  @@id([merchantId, variantId, state], map: "inventory_balances_pkey")
+  @@map("inventory_balances")
+}
+
+model InventoryLedgerEntry {
+  id                    String                @id(map: "inventory_ledger_entries_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  merchantId            String                @map("merchant_id") @db.Uuid
+  variantId             String                @map("variant_id") @db.Uuid
+  type                  InventoryMovementType
+  fromState             InventoryState?       @map("from_state")
+  toState               InventoryState?       @map("to_state")
+  quantity              BigInt
+  fromStateBalanceAfter BigInt?               @map("from_state_balance_after")
+  toStateBalanceAfter   BigInt?               @map("to_state_balance_after")
+  note                  String?               @db.VarChar(500)
+  idempotencyKey        String                @map("idempotency_key") @db.VarChar(128)
+  requestHash           String                @map("request_hash") @db.Char(64)
+  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  merchant Merchant       @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "inventory_ledger_entries_merchant_id_fkey")
+  variant  ProductVariant @relation(fields: [merchantId, variantId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "inventory_ledger_entries_merchant_id_variant_id_fkey")
+
+  @@unique([merchantId, id], map: "inventory_ledger_entries_merchant_id_id_key")
+  @@unique([merchantId, idempotencyKey], map: "inventory_ledger_entries_merchant_id_idempotency_key_key")
+  @@index([merchantId, variantId, createdAt, id], map: "inventory_ledger_variant_created_id_idx")
+  @@index([merchantId, variantId, type, createdAt, id], map: "inventory_ledger_variant_type_created_id_idx")
+  @@map("inventory_ledger_entries")
 }
 
 model VariantPriceHistory {

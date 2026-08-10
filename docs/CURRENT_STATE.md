@@ -278,7 +278,7 @@ B3.2 adds sellable ProductVariant identity and the sixth migration:
 - PostgreSQL row-locked transactional price updates with identical-PUT idempotence
 - cost privacy on normal catalogue reads and cost visibility only on price-management responses
 - exact independent `catalogue.read`, `catalogue.manage`, and `catalogue.price.manage` Permissions
-- an eleven-key application Permission catalog and unchanged explicit idempotent synchronization
+- a thirteen-key application Permission catalog and unchanged explicit idempotent synchronization
 - seven new guarded routes, bringing the production route total to 31
 - real PostgreSQL concurrency and real HTTP coverage for isolation, conflicts, permissions, lifecycle, pricing, Session immutability, and outage behavior
 
@@ -334,3 +334,9 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 Prisma remains exposed through infrastructure services and narrow Auth, Authorization, Merchant, and AccessManagement stores; there are no general repositories. No seed Users, Merchants, or Roles exist. Permission synchronization is an explicit operational command only.
 
 These items belong to later reviewed steps and are outside B3.2. Inventory begins in B4.1, which has not started.
+
+# B4.1 — Inventory ledger and stock availability
+
+B4.1 provides an append-only inventory ledger, AVAILABLE inventory state, transactional `InventoryBalance` projection, receipts, positive/negative manual adjustments, negative-stock prevention, inventory list/detail/history, domain-local idempotency, PostgreSQL row-lock concurrency, `inventory.read`/`inventory.manage`, a 13-key production Permission catalog, and the seventh migration.
+
+Not implemented: HELD stock, StockHold or expiry, reservations, packed/in-transit states, warehouse/bin/transfer, orders or sale consumption, return inspection, inventory audit/outbox, or Redis stock caching.

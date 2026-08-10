@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { AuthorizationModule } from './authorization/authorization.module';
 import { CatalogueModule } from './catalogue/catalogue.module';
 import { HealthModule } from './health/health.module';
+import { InventoryModule } from './inventory/inventory.module';
 import { MerchantModule } from './merchants/merchant.module';
 
 @Module({
@@ -19,6 +20,7 @@ import { MerchantModule } from './merchants/merchant.module';
     MerchantModule,
     AccessManagementModule,
     CatalogueModule,
+    InventoryModule,
   ],
 })
 export class AppModule {}

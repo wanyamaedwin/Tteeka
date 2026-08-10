@@ -49,7 +49,7 @@ Roles use ACTIVE/DISABLED lifecycle rather than hard deletion. Disabling retains
 
 ## Permission replacement and catalog
 
-`PUT roles/:roleId/permissions` atomically replaces the complete RolePermission set. Duplicate keys are deduplicated; an empty array removes all grants. After B3.2, a new grant must be one of the eleven code-owned catalog keys and have an ACTIVE PostgreSQL Permission record. Unknown application keys are HTTP 400; unavailable or DEPRECATED catalog records are generic HTTP 422. Failed validation rolls back without partial change.
+`PUT roles/:roleId/permissions` atomically replaces the complete RolePermission set. Duplicate keys are deduplicated; an empty array removes all grants. After B4.1, a new grant must be one of the thirteen code-owned catalog keys and have an ACTIVE PostgreSQL Permission record. Unknown application keys are HTTP 400; unavailable or DEPRECATED catalog records are generic HTTP 422. Failed validation rolls back without partial change.
 
 ```text
 merchant.profile.manage
@@ -79,3 +79,7 @@ PostgreSQL is resolved on every merchant request. Membership status, Role assign
 ## Deliberate omissions
 
 B2.2 adds no hard-delete API for Membership, Role, or Permission; Permission CRUD; signup; account onboarding; email/WhatsApp invitation; password setup/reset; User editing/disabling; default Roles; commerce Permission keys; or audit/outbox. Immutable authorization audit integration remains later. Full staff invitation/onboarding is deferred. B3.1 introduces the Product Catalogue next.
+
+# B4.1 catalog expansion
+
+The application Permission catalog contains 13 production keys after adding the independent `inventory.read` and `inventory.manage` keys. Explicit sync creates missing ACTIVE entries but does not reactivate DEPRECATED entries or create roles, memberships, or grants.

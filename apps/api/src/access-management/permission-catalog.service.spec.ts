@@ -12,7 +12,7 @@ void test('catalog exposes only code-owned keys active in PostgreSQL', async () 
   ];
   const store = {
     listActivePermissionKeys: (keys: readonly string[]) => {
-      assert.equal(keys.length, 11);
+      assert.equal(keys.length, 13);
       return Promise.resolve([...active, 'unknown.db.permission']);
     },
   } as unknown as AccessManagementStore;

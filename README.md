@@ -144,7 +144,7 @@ PUT   /api/v1/merchants/:merchantId/roles/:roleId/permissions
 GET   /api/v1/merchants/:merchantId/permissions
 ```
 
-Staff addition currently targets an existing ACTIVE Tteeka User; signup and invitations remain deferred. Run `npm run permissions:sync` explicitly to create/synchronize the eleven-key code-owned Permission catalog. The command never creates default Roles and does not run at API startup. See [docs/STAFF_ROLE_ADMINISTRATION.md](docs/STAFF_ROLE_ADMINISTRATION.md).
+Staff addition currently targets an existing ACTIVE Tteeka User; signup and invitations remain deferred. Run `npm run permissions:sync` explicitly to create/synchronize the thirteen-key code-owned Permission catalog. The command never creates default Roles and does not run at API startup. See [docs/STAFF_ROLE_ADMINISTRATION.md](docs/STAFF_ROLE_ADMINISTRATION.md).
 
 B3.1 adds the first Product Catalogue routes:
 
@@ -169,7 +169,7 @@ GET   /api/v1/merchants/:merchantId/products/:productId/variants/:variantId/pric
 GET   /api/v1/merchants/:merchantId/variants/lookup
 ```
 
-`catalogue.read`, `catalogue.manage`, and `catalogue.price.manage` remain exact independent Permissions. The application catalog now contains eleven production keys. BIGINT money is represented as JSON decimal strings, Merchant currency is snapshotted on explicit price changes, normal catalogue reads hide cost, and price history is append-only. Inventory starts in B4.1. See [docs/PRODUCT_VARIANTS_PRICING.md](docs/PRODUCT_VARIANTS_PRICING.md).
+`catalogue.read`, `catalogue.manage`, and `catalogue.price.manage` remain exact independent Permissions. The application catalog now contains thirteen production keys after B4.1. BIGINT money is represented as JSON decimal strings, Merchant currency is snapshotted on explicit price changes, normal catalogue reads hide cost, and price history is append-only. See [docs/PRODUCT_VARIANTS_PRICING.md](docs/PRODUCT_VARIANTS_PRICING.md).
 
 ## Validation
 
@@ -186,3 +186,14 @@ Use `npm run format` to apply Prettier formatting.
 The test command includes real identity-schema integration tests and therefore requires the local PostgreSQL infrastructure with the migration applied.
 
 See [docs/PRODUCT_VARIANTS_PRICING.md](docs/PRODUCT_VARIANTS_PRICING.md) for B3.2 sellable catalogue identity and pricing, [docs/STAFF_ROLE_ADMINISTRATION.md](docs/STAFF_ROLE_ADMINISTRATION.md) for B2.2 access administration, [docs/MERCHANT_PROFILE_SETTINGS.md](docs/MERCHANT_PROFILE_SETTINGS.md) for B2.1 business routes, [docs/IDENTITY_MODEL.md](docs/IDENTITY_MODEL.md) for identity relationships, [docs/PASSWORD_CREDENTIALS.md](docs/PASSWORD_CREDENTIALS.md) for credential storage and hashing boundaries, [docs/AUTHORIZATION_MODEL.md](docs/AUTHORIZATION_MODEL.md) for merchant-scoped authorization persistence, [docs/MERCHANT_CONTEXT.md](docs/MERCHANT_CONTEXT.md) for context resolution, [docs/PERMISSION_ENFORCEMENT.md](docs/PERMISSION_ENFORCEMENT.md) for declarative exact-Permission enforcement, [docs/SESSION_MODEL.md](docs/SESSION_MODEL.md) for opaque Sessions, [docs/LOGIN_FLOW.md](docs/LOGIN_FLOW.md) for login and cookie issuance, [docs/AUTHENTICATED_REQUESTS.md](docs/AUTHENTICATED_REQUESTS.md) for protected-request resolution, [docs/SESSION_REVOCATION.md](docs/SESSION_REVOCATION.md) for logout behavior, [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) for the exact implementation boundary, and [docs/DATABASE_CONVENTIONS.md](docs/DATABASE_CONVENTIONS.md) for persistence and migration rules.
+
+# B4.1 inventory
+
+Inventory administration adds four routes:
+
+- `GET /api/v1/merchants/:merchantId/inventory`
+- `GET /api/v1/merchants/:merchantId/inventory/:variantId`
+- `GET /api/v1/merchants/:merchantId/inventory/:variantId/ledger`
+- `POST /api/v1/merchants/:merchantId/inventory/:variantId/movements`
+
+Reads require `inventory.read`; stock commands require the independent `inventory.manage` permission and an `Idempotency-Key` header. The application Permission catalog now has 13 production keys. See [Inventory ledger](docs/INVENTORY_LEDGER.md). B4.2 introduces stock holds; they are not part of B4.1.

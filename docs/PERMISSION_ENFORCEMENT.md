@@ -98,3 +98,7 @@ The existing Merchant-context endpoint remains an inspection endpoint rather tha
 - authorization audit events and outbox integration
 - wildcard, deny, hierarchy, inheritance, or Role-name authority
 - authorization caching or invalidation infrastructure
+
+# B4.1 inventory permissions
+
+`inventory.read` protects inventory list, detail, and ledger history. `inventory.manage` protects receipts and manual positive/negative adjustments. They are exact independent permissions: neither implies the other, and changes are evaluated from current database grants without re-login.

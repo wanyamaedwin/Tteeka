@@ -1488,3 +1488,21 @@
 - **Status:** Accepted
 - **Decision:** B3.2 stops at sellable identity and price; B4.1 begins stock authority.
 - **Rationale:** Catalogue and inventory are separate bounded domains.
+
+# B4.1 inventory decisions
+
+1. Inventory is separate from catalogue; ProductVariant contains no mutable stock quantity.
+2. InventoryLedgerEntry is append-only history and InventoryBalance is its transactional current projection.
+3. B4.1 has only AVAILABLE; later states extend inventory without redesigning catalogue.
+4. RECEIPT and ADJUSTMENT_IN enter from an external/null state; ADJUSTMENT_OUT leaves AVAILABLE to external/null.
+5. Manual adjustments require explanatory notes.
+6. Whole-unit quantities use PostgreSQL BIGINT and decimal-string JSON; AVAILABLE cannot become negative.
+7. Ledger append and balance update are atomic under PostgreSQL row locking.
+8. Zero-history Variants implicitly have AVAILABLE zero; projection rows are lazy.
+9. Inventory remains manageable across Variant lifecycle states and without a price.
+10. `inventory.read` and `inventory.manage` are independent, expanding the production catalog from 11 to 13 keys.
+11. Movement commands require opaque, case-sensitive, per-Merchant idempotency keys. Identical replay returns the original; a different command conflicts.
+12. B4.1 idempotency is domain-local, not the future B14 framework.
+13. PostgreSQL remains stock authority; no Redis cache or process lock is used.
+14. Inventory history is not a generic audit log/outbox.
+15. HELD and StockHold remain deferred to B4.2.

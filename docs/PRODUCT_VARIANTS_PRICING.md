@@ -51,3 +51,7 @@ Merchant-wide lookup accepts exactly one of canonicalized `sku` or case-sensitiv
 ## Deferred boundary
 
 B3.2 contains no inventory quantity, on-hand/available/held/reserved state, stock ledger, reservation, warehouse/bin, order/cart/payment, discounts/promotions/schedules, tax/VAT/FX, Product or Variant images, supplier/purchasing, Category/Brand table, Redis catalogue cache, audit/outbox, or frontend. PostgreSQL remains catalogue and price authority. B4.1 owns inventory.
+
+# Inventory reference
+
+B4.1 Inventory references ProductVariant through the tenant-safe `(merchant_id, variant_id)` identity. ProductVariant itself still contains no quantity, stock, available, on-hand, or held field; inventory history and current projection belong to the separate Inventory domain. See [INVENTORY_LEDGER.md](INVENTORY_LEDGER.md).
