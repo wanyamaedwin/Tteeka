@@ -2,7 +2,7 @@
 
 ## Purpose and boundary
 
-B1.6 resolves the opaque `tteeka_session` cookie for explicitly protected HTTP routes. It establishes only global User authentication. B1.7 reuses that route-scoped guard for `POST /api/v1/auth/logout-all`; successful bulk revocation makes the current and every other old Session cookie for that User unusable. Merchant selection, MerchantMembership, Roles, Permissions, authorization guards, Session listing/management, and a global authentication policy remain deferred.
+B1.6 resolves the opaque `tteeka_session` cookie for explicitly protected HTTP routes. It establishes only global User authentication. B1.7 reuses that route-scoped guard for `POST /api/v1/auth/logout-all`; successful bulk revocation makes the current and every other old Session cookie for that User unusable. B1.8 composes the same guard before `MerchantContextGuard` on the explicit Merchant-context route. Session listing/management and a global authentication policy remain deferred.
 
 PostgreSQL remains the sole Session authority. Redis is not consulted for authentication and stores no Session state.
 
@@ -42,6 +42,8 @@ type AuthenticatedPrincipal = {
 
 `SessionAuthGuard` writes it only to `request.auth`. The focused `@CurrentAuth()` parameter decorator reads that established context and performs no hashing, lookup, or authorization.
 
+For `GET /api/v1/merchants/:merchantId/context`, successful authentication runs before Merchant resolution. `MerchantContextGuard` writes its result only to `request.merchantContext`; it never mutates `AuthenticatedPrincipal`. `@CurrentMerchantContext()` reads that separate context. This preserves global identity independently of the requested tenant and allows the same Session to resolve different Merchants on separate requests.
+
 `GET /api/v1/auth/me` returns only:
 
 ```json
@@ -72,4 +74,4 @@ Touching changes only operational `lastUsedAt`. It never extends absolute `expir
 
 `GET /api/v1/auth/me` and `POST /api/v1/auth/logout-all` are explicitly guarded. Login and both health endpoints remain public. Current-session `POST /api/v1/auth/logout` is intentionally a special unguarded, idempotent route so missing, malformed, stale, expired, revoked, unknown, and DISABLED-User cookies can be cleared safely. Successful server revocation makes an old cookie fail future authenticated resolution. `SessionAuthGuard` is not an `APP_GUARD`, and no `@Public` mechanism is introduced.
 
-Authentication and authorization remain separate: neither logout operation resolves Merchant context, Membership, Role, or Permission. Session listing/management, global authentication, authorization guards, renewal, rotation, sliding expiration, Redis Session storage, rate limiting, and audit/outbox remain deferred. B1.7 does not add a full CSRF framework; a reviewed CSRF policy is required before production authenticated business write endpoints are introduced. See [SESSION_REVOCATION.md](SESSION_REVOCATION.md).
+Authentication and authorization remain separate: neither logout operation resolves Merchant context, Membership, Role, or Permission. B1.8 resolves Merchant context only on its explicit route and adds no global guard or Permission enforcement. Session listing/management, global authentication, renewal, rotation, sliding expiration, Redis Session storage, rate limiting, and audit/outbox remain deferred. A reviewed CSRF policy is required before production authenticated business write endpoints are introduced. See [SESSION_REVOCATION.md](SESSION_REVOCATION.md) and [MERCHANT_CONTEXT.md](MERCHANT_CONTEXT.md).

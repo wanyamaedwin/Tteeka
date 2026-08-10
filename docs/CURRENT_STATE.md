@@ -1,6 +1,6 @@
 # Current State
 
-## B1.7: Logout, logout-all, and Session revocation
+## B1.8: Merchant context and permission evaluation
 
 The repository contains a backend-only npm workspace monorepo targeting Node.js 24 LTS.
 
@@ -175,6 +175,26 @@ B1.7 adds explicit Session revocation without a schema migration:
 
 See [SESSION_REVOCATION.md](SESSION_REVOCATION.md) for the complete behavior and security boundary.
 
+B1.8 adds merchant-scoped authorization resolution without a schema migration:
+
+- an explicit `GET /api/v1/merchants/:merchantId/context` route guarded first by Session authentication and then Merchant context
+- UUIDv7 Merchant ID structural validation before persistence access
+- one generic 403 result for unknown Merchants, absent or non-ACTIVE Memberships, and non-ACTIVE Merchants
+- one focused authorization-store lookup scoped by authenticated User and requested Merchant
+- ACTIVE Role and ACTIVE Permission lifecycle filtering
+- valid zero-Role Memberships and zero-Permission Roles
+- unioned, deduplicated, deterministically sorted effective Permission keys
+- deterministic Role ordering by name and ID
+- safe no-store response mapping with no Session renewal or cookie mutation
+- separate `request.auth` and `request.merchantContext` boundaries
+- exact, case-sensitive pure Permission evaluation with explicit empty-list semantics
+- PostgreSQL-authoritative resolution on every request with no Session or Redis authorization cache
+- immediate visibility of Merchant, Membership, Role, and Permission lifecycle changes
+- multi-Merchant context isolation for one authenticated global User
+- no Permission requirement decorator, enforcement guard, or protected business endpoint
+
+See [MERCHANT_CONTEXT.md](MERCHANT_CONTEXT.md) for the complete behavior and deferred-enforcement boundary.
+
 The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage therefore does not kill the process: liveness remains independent, while the existing direct `pg` readiness probe reports the outage. The worker constructs the same shared infrastructure but performs no database query, queue work, or business processing.
 
 ## Explicitly not implemented
@@ -187,13 +207,13 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - JWTs, bearer/access tokens, or refresh tokens
 - Session renewal, rotation, sliding expiration, retention cleanup, or Redis Session storage
 - a global authentication guard or global public/private route metadata
-- Merchant context, Membership resolution, Role resolution, or Permission resolution during authentication
-- authorization guards, permission guards, or authorization execution
+- Merchant context, Membership resolution, Role resolution, or Permission resolution during authentication itself
+- permission requirement decorators, permission guards, or business-route authorization enforcement
 - CSRF defense for future authenticated state-changing browser requests
 - password-reset tokens or password-reset workflow
 - email verification, phone verification, or OTP
 - default Permissions, default Roles, Permission seeding, or Role seeding
-- `AuthorizationModule`, authorization services, permission resolution, guards, or decorators
+- global authorization guards or authorization decorators
 - role-management or staff-management APIs
 - invitation workflow
 - rate limiting, brute-force protection, account lockout, failed-login counters, MFA, or passkeys
@@ -206,7 +226,7 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - cash on delivery (COD)
 - delivery, riders, or returns
 - receipts
-- authorization execution, policies, or audit domain functionality
+- authorization administration, business policies, or audit domain functionality
 - outbox functionality
 - BullMQ, queues, workers, or background jobs
 - WhatsApp, MTN, or Airtel integrations
@@ -215,4 +235,4 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 
 Prisma remains exposed through infrastructure services and the narrow Auth store; there are no general identity repositories or business APIs. No seed users or merchants exist.
 
-These items belong to later reviewed steps and are outside B1.7. B1.8 has not started.
+These items belong to later reviewed steps and are outside B1.8.

@@ -69,6 +69,8 @@ B1.6 resolves an ACTIVE User from an authenticated Session and exposes only User
 
 B1.7 logout-all targets every unrevoked Session belonging to that global User identity. MerchantMembership is not involved, so an authenticated ACTIVE User with zero Memberships can revoke all of their Sessions.
 
+B1.8 resolves one explicitly requested Merchant independently of Session identity. The authenticated User and Merchant ID scope a focused MerchantMembership lookup; an ACTIVE User may resolve different ACTIVE Memberships and effective Permission sets with the same Session. The result is attached separately from the authenticated principal and is never persisted in the Session.
+
 ## MerchantMembership
 
 `MerchantMembership` represents one User belonging to one Merchant.
@@ -102,4 +104,4 @@ Status changes do not delete related records. No hard-delete API exists.
 
 No Role is stored directly on User, and MerchantMembership has no single Role field. B1.3 models merchant-scoped Roles through explicit MembershipRole records, without pre-encoding owner, manager, sales, or other default roles.
 
-Password credentials, opaque Session persistence, login issuance, and route-scoped request authentication now exist as separate security concerns. Logout, Session management, credential reset, and invitation workflows remain absent. Future authorization must build on this identity foundation without weakening its tenancy or integrity rules.
+Password credentials, opaque Session persistence, login issuance, route-scoped request authentication, logout, and explicit Merchant-context resolution now exist as separate security concerns. Session management, credential reset, invitation workflows, authorization administration, and Permission enforcement remain absent. Future work must build on this identity foundation without weakening its tenancy or integrity rules.

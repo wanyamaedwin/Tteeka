@@ -25,5 +25,6 @@ const dummyPasswordHashProvider: Provider = {
     AuthService,
     SessionAuthGuard,
   ],
+  exports: [AuthService, SessionAuthGuard],
 })
 export class AuthModule {}

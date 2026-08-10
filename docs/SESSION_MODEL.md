@@ -8,7 +8,7 @@ B1.4 established persistence and cryptographic primitives for opaque server-side
 
 The client-side token is a meaningless random identifier. It contains no User, Merchant, Membership, Role, Permission, timestamp, contact detail, or signed JSON payload. It is not a JWT.
 
-A User may have many Sessions, and every Session belongs to exactly one User. Session has no `merchantId`: authentication establishes global human identity, while future Merchant authorization continues through `User -> MerchantMembership -> MembershipRole -> Role -> Permission`. One authenticated User can work across multiple Merchants without freezing a Merchant into authentication persistence.
+A User may have many Sessions, and every Session belongs to exactly one User. Session has no `merchantId`: authentication establishes global human identity, while Merchant authorization continues through `User -> MerchantMembership -> MembershipRole -> Role -> Permission`. B1.8 resolves that path from the explicit request URL, never from Session persistence, so one authenticated User can work across multiple Merchants without freezing or caching a Merchant in authentication state.
 
 ## Data model
 
@@ -52,4 +52,4 @@ User-Agent and IP address are optional security/diagnostic metadata only. They a
 
 PostgreSQL—not Redis—is Session authority. Redis Session storage and caching are absent so revocation and expiry facts have one durable source of truth.
 
-B1.5 implements password verification, Session issuance, and the `tteeka_session` HttpOnly cookie with SameSite=Lax, environment-derived Secure behavior, `/api/v1` path, and expiry matching the stored Session. B1.6 resolves that cookie through a route-scoped Session guard and PostgreSQL lookup. B1.7 implements revocation and matching cookie removal; see [AUTHENTICATED_REQUESTS.md](AUTHENTICATED_REQUESTS.md) and [SESSION_REVOCATION.md](SESSION_REVOCATION.md). Future reviewed checkpoints may implement Session listing, management, rotation, renewal, retention cleanup, and privacy policy. JWTs, refresh tokens, bearer authentication, and Redis Session authority remain absent.
+B1.5 implements password verification, Session issuance, and the `tteeka_session` HttpOnly cookie with SameSite=Lax, environment-derived Secure behavior, `/api/v1` path, and expiry matching the stored Session. B1.6 resolves that cookie through a route-scoped Session guard and PostgreSQL lookup. B1.7 implements revocation and matching cookie removal. B1.8 reuses authentication before resolving uncached Merchant context without changing or renewing the Session; see [AUTHENTICATED_REQUESTS.md](AUTHENTICATED_REQUESTS.md), [SESSION_REVOCATION.md](SESSION_REVOCATION.md), and [MERCHANT_CONTEXT.md](MERCHANT_CONTEXT.md). Future reviewed checkpoints may implement Session listing, management, rotation, renewal, retention cleanup, and privacy policy. JWTs, refresh tokens, bearer authentication, and Redis Session authority remain absent.

@@ -678,3 +678,123 @@
 - **Status:** Accepted
 - **Decision:** Both logout commands use POST and B1.7 adds no full CSRF framework.
 - **Rationale:** State changes must not use GET, while production business-write CSRF hardening requires separate review.
+
+## ADR-114: Merchant context uses an explicit URL
+
+- **Status:** Accepted
+- **Decision:** Merchant context is requested at `GET /api/v1/merchants/:merchantId/context` with the Merchant identifier in the path.
+- **Rationale:** Tenant selection must be visible, auditable, and independent of implicit or sticky client state.
+
+## ADR-115: Session does not store Merchant context
+
+- **Status:** Accepted
+- **Decision:** Session persistence and `AuthenticatedPrincipal` contain no Merchant, Membership, Role, or Permission state.
+- **Rationale:** A global User may work across multiple Merchants, and authorization must not become stale authentication state.
+
+## ADR-116: Authentication and authorization guards remain separate
+
+- **Status:** Accepted
+- **Decision:** The context route composes `SessionAuthGuard` before `MerchantContextGuard` rather than combining their responsibilities.
+- **Rationale:** Global identity and tenant-scoped access are distinct trust decisions with different inputs and failures.
+
+## ADR-117: Only ACTIVE Merchants expose context
+
+- **Status:** Accepted
+- **Decision:** SUSPENDED and ARCHIVED Merchants cannot produce Merchant context.
+- **Rationale:** Merchant lifecycle is an authoritative tenant-wide availability boundary.
+
+## ADR-118: Only ACTIVE Memberships expose context
+
+- **Status:** Accepted
+- **Decision:** A missing or DISABLED MerchantMembership cannot produce Merchant context.
+- **Rationale:** Membership lifecycle directly controls the User's current access to that Merchant.
+
+## ADR-119: Zero-Role Memberships are valid
+
+- **Status:** Accepted
+- **Decision:** An ACTIVE Membership may resolve successful context with no Roles and no Permissions.
+- **Rationale:** Membership existence and granted capability are separate facts, including during onboarding or deliberate least privilege.
+
+## ADR-120: Only ACTIVE Roles contribute
+
+- **Status:** Accepted
+- **Decision:** Assigned DISABLED Roles remain persisted but are excluded from resolved context.
+- **Rationale:** Lifecycle changes must remove the Role's effective authority without destructive assignment edits.
+
+## ADR-121: Only ACTIVE Permissions contribute
+
+- **Status:** Accepted
+- **Decision:** DEPRECATED Permissions remain persisted but are excluded from effective Permission keys.
+- **Rationale:** Deprecation must disable capability use while preserving historical addressability and assignment integrity.
+
+## ADR-122: Effective Permissions are a Role union
+
+- **Status:** Accepted
+- **Decision:** A Membership receives the union of ACTIVE Permission keys contributed by all of its ACTIVE Roles.
+- **Rationale:** Multiple Role assignment is additive in the B1.8 role-based model.
+
+## ADR-123: Effective Permission keys are deduplicated
+
+- **Status:** Accepted
+- **Decision:** Each exact Permission key appears at most once in resolved context even when multiple Roles contribute it.
+- **Rationale:** Consumers need a canonical capability set rather than persistence-path duplication.
+
+## ADR-124: Permission matching is exact and has no wildcard semantics
+
+- **Status:** Accepted
+- **Decision:** Permission evaluation is case-sensitive exact string membership; `*` and prefixes have no special meaning.
+- **Rationale:** Implicit pattern semantics would broaden authority beyond explicitly assigned stable capability keys.
+
+## ADR-125: Permission evaluation has no deny rules
+
+- **Status:** Accepted
+- **Decision:** B1.8 models only the additive set of effective Permission keys and no explicit or precedence-based deny.
+- **Rationale:** Deny semantics require a separately reviewed conflict and inheritance model.
+
+## ADR-126: Role names carry no authority
+
+- **Status:** Accepted
+- **Decision:** Names such as Owner, Admin, or Manager are display metadata and never bypass Permission evaluation.
+- **Rationale:** Merchant-local mutable labels are unsuitable as stable authorization capabilities.
+
+## ADR-127: Merchant authorization denials are generic
+
+- **Status:** Accepted
+- **Decision:** Unknown Merchant, missing Membership, non-ACTIVE Membership, and non-ACTIVE Merchant return the same `403 Forbidden.` response.
+- **Rationale:** The endpoint must not disclose tenant existence, relationship, or lifecycle state.
+
+## ADR-128: Authentication and Merchant context occupy separate request fields
+
+- **Status:** Accepted
+- **Decision:** Global identity is attached at `request.auth` and resolved authorization at `request.merchantContext`.
+- **Rationale:** Keeping contexts separate prevents accidental mutation of the authenticated principal and makes trust boundaries explicit.
+
+## ADR-129: PostgreSQL is authoritative for authorization context
+
+- **Status:** Accepted
+- **Decision:** Every Merchant-context request resolves current Membership, Merchant, Role, and Permission state from PostgreSQL.
+- **Rationale:** Durable lifecycle and assignment records, not derived client or process state, define current authority.
+
+## ADR-130: B1.8 adds no Session or Redis authorization cache
+
+- **Status:** Accepted
+- **Decision:** Effective Roles and Permissions are not cached in Session persistence, cookies, Redis, or process memory.
+- **Rationale:** Cache invalidation is unnecessary at this checkpoint and cannot delay revocation effects.
+
+## ADR-131: Authorization lifecycle changes apply on the next request
+
+- **Status:** Accepted
+- **Decision:** Merchant suspension or archival, Membership or Role disabling, and Permission deprecation affect the next context resolution without Session replacement.
+- **Rationale:** Re-querying authoritative lifecycle state gives administrators immediate access-control effect.
+
+## ADR-132: MerchantContextGuard resolves context but enforces no Permission
+
+- **Status:** Accepted
+- **Decision:** `MerchantContextGuard` verifies that context is available and attaches it, but does not require a capability key.
+- **Rationale:** Context discovery and route-specific Permission policy are different concerns.
+
+## ADR-133: Permission enforcement is deferred beyond B1.8
+
+- **Status:** Accepted
+- **Decision:** B1.8 introduces no Permission decorator, Permission guard, or Permission-protected business endpoint.
+- **Rationale:** Enforcement metadata, composition rules, and business-route policy require the next reviewed checkpoint.

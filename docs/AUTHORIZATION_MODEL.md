@@ -2,7 +2,7 @@
 
 ## Purpose and boundary
 
-B1.3 establishes Tteeka's merchant-scoped role-based authorization persistence foundation. It defines the records and database constraints needed to describe which Roles a MerchantMembership has and which global Permissions a Role contains. It does not make authorization decisions, resolve effective permissions, expose role-management APIs, or add guards or decorators.
+B1.3 establishes Tteeka's merchant-scoped role-based authorization persistence foundation. B1.8 consumes that model to resolve effective context for one authenticated User and explicitly requested Merchant. It still does not expose role-management APIs, seed authorization data, or enforce Permissions on business routes.
 
 `User` remains the global human identity. `MerchantMembership` remains the boundary that says a User belongs to a Merchant. Authorization attaches to that membership rather than directly to User, so one person can have different responsibilities at different merchants.
 
@@ -123,8 +123,14 @@ Independent foreign keys on only `membership_id` and `role_id` would permit a fu
 - Normal Role and Permission lifecycle uses `DISABLED` and `DEPRECATED`, preserving assignment rows.
 - Cascades apply only when an owning Role or Membership is legitimately physically removed; they do not make hard deletion the normal lifecycle operation.
 
+## B1.8 context resolution
+
+`GET /api/v1/merchants/:merchantId/context` resolves the authorization path with one focused lookup scoped by authenticated User and requested Merchant. Both Merchant and MerchantMembership must be ACTIVE. Zero Roles and zero-Permission Roles are valid; only ACTIVE Roles and ACTIVE Permissions contribute, Permission keys are unioned and deduplicated, and output ordering is deterministic.
+
+The resolved authorization data lives at `request.merchantContext`, separately from global identity at `request.auth`. PostgreSQL is consulted on every context request, so no Session or Redis cache can preserve stale authorization after a lifecycle change. `PermissionEvaluator` implements only exact, case-sensitive membership checks; it gives Role names no authority and implements neither wildcards nor denies. See [MERCHANT_CONTEXT.md](MERCHANT_CONTEXT.md).
+
 ## Intentional omissions and future direction
 
 No Role or Permission relation lives directly on `User`, and `MerchantMembership` has no single `roleId`: those designs would violate merchant context or the multiple-role requirement. No `isOwner`, `isAdmin`, `isManager`, or similar authorization boolean exists.
 
-B1.3 seeds neither default Roles nor a Permission catalog. Owner, Manager, and other role bootstrap behavior requires a later reviewed design, as does the stable capability catalog. A future authorization service may resolve a Membership's effective Permissions through the explicit links and expose permission checks to guards or application services. None of that execution logic, nor login or session functionality, exists in B1.3.
+B1.3 seeds neither default Roles nor a Permission catalog. Owner, Manager, and other role bootstrap behavior requires a later reviewed design, as does the stable capability catalog. B1.8 resolves and evaluates exact effective Permission keys, but requirement decorators, enforcement guards, business-route policy, and administration remain deferred.
