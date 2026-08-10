@@ -53,6 +53,14 @@ enum ProductStatus {
   @@map("product_status")
 }
 
+enum ProductVariantStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+
+  @@map("product_variant_status")
+}
+
 model Merchant {
   id          String         @id(map: "merchants_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
   displayName String         @map("display_name") @db.VarChar(160)
@@ -84,13 +92,57 @@ model Product {
   createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "products_merchant_id_fkey")
+  merchant Merchant         @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "products_merchant_id_fkey")
+  variants ProductVariant[]
 
+  @@unique([merchantId, id], map: "products_merchant_id_id_key")
   @@index([merchantId, status], map: "products_merchant_id_status_idx")
   @@index([merchantId, name], map: "products_merchant_id_name_idx")
   @@index([merchantId, category], map: "products_merchant_id_category_idx")
   @@index([merchantId, brand], map: "products_merchant_id_brand_idx")
   @@map("products")
+}
+
+model ProductVariant {
+  id             String               @id(map: "product_variants_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  merchantId     String               @map("merchant_id") @db.Uuid
+  productId      String               @map("product_id") @db.Uuid
+  sku            String               @db.VarChar(64)
+  barcode        String?              @db.VarChar(64)
+  size           String?              @db.VarChar(80)
+  colour         String?              @db.VarChar(80)
+  status         ProductVariantStatus @default(INACTIVE)
+  sellingPrice   BigInt?              @map("selling_price")
+  costPrice      BigInt?              @map("cost_price")
+  priceCurrency  String?              @map("price_currency") @db.Char(3)
+  priceUpdatedAt DateTime?            @map("price_updated_at") @db.Timestamptz(3)
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  product      Product               @relation(fields: [merchantId, productId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "product_variants_merchant_id_product_id_fkey")
+  priceHistory VariantPriceHistory[]
+
+  @@unique([merchantId, id], map: "product_variants_merchant_id_id_key")
+  @@unique([merchantId, sku], map: "product_variants_merchant_id_sku_key")
+  @@unique([merchantId, barcode], map: "product_variants_merchant_id_barcode_key")
+  @@index([merchantId, productId, sku, id], map: "product_variants_merchant_id_product_id_sku_id_idx")
+  @@index([merchantId, productId, status, sku, id], map: "product_variants_merchant_id_product_id_status_sku_id_idx")
+  @@map("product_variants")
+}
+
+model VariantPriceHistory {
+  id           String   @id(map: "variant_price_history_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  merchantId   String   @map("merchant_id") @db.Uuid
+  variantId    String   @map("variant_id") @db.Uuid
+  sellingPrice BigInt   @map("selling_price")
+  costPrice    BigInt?  @map("cost_price")
+  currency     String   @db.Char(3)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  variant ProductVariant @relation(fields: [merchantId, variantId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "variant_price_history_merchant_id_variant_id_fkey")
+
+  @@index([merchantId, variantId, createdAt, id], map: "variant_price_history_merchant_id_variant_id_created_at_id_idx")
+  @@map("variant_price_history")
 }
 
 model User {

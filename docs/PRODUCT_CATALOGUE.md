@@ -1,12 +1,12 @@
 # Product Catalogue
 
-B3.1 introduces Product as Tteeka's first core commerce aggregate. A Product belongs directly to one Merchant, uses the repository's database-generated UUIDv7 convention, and contains only bounded catalogue metadata: `name`, nullable `description`, nullable `category`, nullable `brand`, lifecycle `status`, and timestamps. Responses omit `merchantId` because route context identifies the tenant.
+B3.1 introduces Product as Tteeka's first core commerce aggregate. A Product belongs directly to one Merchant, uses the repository's database-generated UUIDv7 convention, and contains only bounded catalogue metadata: `name`, nullable `description`, nullable `category`, nullable `brand`, lifecycle `status`, and timestamps. Responses omit `merchantId` because route context identifies the tenant. B3.2 adds dedicated ProductVariant endpoints while keeping Product detail bounded rather than embedding an unbounded child collection.
 
 ## Lifecycle and retention
 
 `ACTIVE` means operational catalogue metadata, `INACTIVE` means temporarily inactive but retained, and `ARCHIVED` means retired but retained. All B3.1 transitions are reversible, including restoration from ARCHIVED, because no immutable order or inventory history exists yet. There is no Product DELETE route or production hard-delete operation.
 
-Category and brand are case-preserving nullable strings bounded to 120 characters. Category and Brand tables, taxonomies, and administration are deferred until real requirements justify separate aggregates. Generic JSON metadata/attributes/options are rejected; B3.2 will model sellable ProductVariant attributes explicitly.
+Category and brand are case-preserving nullable strings bounded to 120 characters. Category and Brand tables, taxonomies, and administration are deferred until real requirements justify separate aggregates. Generic JSON metadata/attributes/options remain rejected; B3.2 models only explicit nullable size and colour on sellable ProductVariants.
 
 ## Merchant administration API
 
@@ -31,6 +31,6 @@ Offset pagination defaults to page 1 and page size 20; page is an integer at lea
 
 ## Authority and deferred scope
 
-PostgreSQL is Product and authorization authority on every request. Product data is not cached in Redis, and operations do not rotate, renew, revoke, or otherwise mutate the global Session. The code-owned Permission catalog expands to ten keys; explicit `npm run permissions:sync` remains idempotent, preserves DEPRECATED and unknown records, and creates no Roles or grants.
+PostgreSQL is Product and authorization authority on every request. Product data is not cached in Redis, and operations do not rotate, renew, revoke, or otherwise mutate the global Session. The code-owned Permission catalog expands to eleven keys through B3.2; explicit `npm run permissions:sync` remains idempotent, preserves DEPRECATED and unknown records, and creates no Roles or grants.
 
-B3.1 contains no SKU, barcode, ProductVariant, price/cost/history/discount, inventory/stock/warehouse, image/media, Category/Brand table, public storefront, customer visibility API, audit/outbox, or search engine. B3.2 will introduce sellable variants/SKUs; pricing and inventory remain later boundaries.
+B3.2 now gives each Product dedicated Merchant-scoped ProductVariants with SKU/barcode identity, lifecycle, current BIGINT price, currency snapshots, and append-only price history. Product status does not cascade into Variant status. Inventory, stock/holds/warehouses, discounts/promotions, images/media, Category/Brand tables, public storefront, audit/outbox, and Redis catalogue caching remain absent. See [PRODUCT_VARIANTS_PRICING.md](PRODUCT_VARIANTS_PRICING.md).

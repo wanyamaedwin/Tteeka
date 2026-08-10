@@ -9,6 +9,11 @@ import {
 import type { ProductListQuery } from './product-query.schema';
 import type { CreateProductInput, ProductPatch } from './product.schema';
 
+type ProductStore = Pick<
+  CatalogueStore,
+  'createProduct' | 'listProducts' | 'findProduct' | 'updateProduct'
+>;
+
 export interface ProductResponse {
   readonly id: string;
   readonly name: string;
@@ -23,7 +28,7 @@ export interface ProductResponse {
 @Injectable()
 export class ProductService {
   public constructor(
-    @Inject(CATALOGUE_STORE) private readonly store: CatalogueStore,
+    @Inject(CATALOGUE_STORE) private readonly store: ProductStore,
   ) {}
 
   public async create(

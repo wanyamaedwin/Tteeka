@@ -23,6 +23,8 @@ B2.2 applies the same rule to staff, Role, Role-assignment, Role-Permission, and
 
 B3.1 applies `catalogue.read` to Product list/detail and `catalogue.manage` to Product create/update. Every Product route uses the same three-guard pipeline. A manage-only caller may POST/PATCH but receives 403 from GET list/detail; manage never implies read. See [PRODUCT_CATALOGUE.md](PRODUCT_CATALOGUE.md).
 
+B3.2 adds `catalogue.price.manage` for Variant current-price PUT and price-history reads. `catalogue.read` covers ordinary Variant list/detail/lookup and selling-price visibility, while `catalogue.manage` covers Variant identity, metadata, and lifecycle changes. Cost is visible only behind price management. Read, manage, and price-manage are exact independent capabilities with no implied hierarchy. See [PRODUCT_VARIANTS_PRICING.md](PRODUCT_VARIANTS_PRICING.md).
+
 ## Required guard pipeline
 
 A future protected merchant route composes three route-scoped guards in this order:

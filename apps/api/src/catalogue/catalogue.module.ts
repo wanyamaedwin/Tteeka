@@ -6,6 +6,8 @@ import { CATALOGUE_STORE } from './catalogue.store';
 import { PrismaCatalogueStore } from './prisma-catalogue.store';
 import { ProductController } from './product.controller';
 import { ProductService } from './product.service';
+import { ProductVariantController } from './product-variant.controller';
+import { ProductVariantService } from './product-variant.service';
 
 const catalogueStoreProvider: Provider = {
   provide: CATALOGUE_STORE,
@@ -14,7 +16,7 @@ const catalogueStoreProvider: Provider = {
 
 @Module({
   imports: [AuthModule, AuthorizationModule],
-  controllers: [ProductController],
-  providers: [catalogueStoreProvider, ProductService],
+  controllers: [ProductController, ProductVariantController],
+  providers: [catalogueStoreProvider, ProductService, ProductVariantService],
 })
 export class CatalogueModule {}

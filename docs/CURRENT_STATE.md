@@ -265,6 +265,25 @@ B3.1 adds the first core commerce aggregate and fifth migration:
 
 See [PRODUCT_CATALOGUE.md](PRODUCT_CATALOGUE.md) for the complete B3.1 contract.
 
+B3.2 adds sellable ProductVariant identity and the sixth migration:
+
+- Merchant/Product-bound ProductVariant persistence with database-enforced composite tenant foreign keys and UUIDv7 IDs
+- required Merchant-scoped canonical uppercase SKU and optional Merchant-scoped case-preserving barcode
+- nullable bounded size/colour metadata with no generic JSON options
+- INACTIVE default plus ACTIVE/INACTIVE/ARCHIVED lifecycle, where ACTIVE requires current price
+- dedicated Variant create, list, detail, update, and exact Merchant-wide SKU/barcode lookup APIs
+- current positive selling price, optional nonnegative cost, and signed-BIGINT-safe string JSON representation
+- explicit Merchant currency snapshots that are not rewritten by later Merchant setting changes
+- append-only VariantPriceHistory with tenant-safe foreign key, deterministic pagination, and immutable old currency states
+- PostgreSQL row-locked transactional price updates with identical-PUT idempotence
+- cost privacy on normal catalogue reads and cost visibility only on price-management responses
+- exact independent `catalogue.read`, `catalogue.manage`, and `catalogue.price.manage` Permissions
+- an eleven-key application Permission catalog and unchanged explicit idempotent synchronization
+- seven new guarded routes, bringing the production route total to 31
+- real PostgreSQL concurrency and real HTTP coverage for isolation, conflicts, permissions, lifecycle, pricing, Session immutability, and outage behavior
+
+See [PRODUCT_VARIANTS_PRICING.md](PRODUCT_VARIANTS_PRICING.md) for the complete B3.2 contract.
+
 The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage therefore does not kill the process: liveness remains independent, while the existing direct `pg` readiness probe reports the outage. The worker constructs the same shared infrastructure but performs no database query, queue work, or business processing.
 
 ## Explicitly not implemented
@@ -278,7 +297,7 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - Session renewal, rotation, sliding expiration, retention cleanup, or Redis Session storage
 - a global authentication guard or global public/private route metadata
 - Merchant context, Membership resolution, Role resolution, or Permission resolution during authentication itself
-- additional business routes beyond Merchant profile/core settings and access management
+- business routes beyond the implemented Merchant, access-management, Product, and ProductVariant/pricing surfaces
 - multi-Permission requirement metadata or any/all route composition
 - CSRF defense for future authenticated state-changing browser requests
 - password-reset tokens or password-reset workflow
@@ -296,8 +315,9 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - Merchant creation, deletion, or status-management APIs
 - User or staff administration APIs
 - Role hierarchy, inheritance, wildcard, deny, or Owner/Admin bypass semantics
-- ProductVariant, SKU, barcode, pricing, price history, discounts, or cost price
-- inventory, stock holds, warehouses, or Product images/media
+- inventory quantities, stock ledger, holds/reservations, warehouses/bins, or availability booleans
+- discounts, promotions, scheduled/bulk pricing, tax/VAT, or FX conversion
+- Product or Variant images/media
 - Category or Brand CRUD/tables, public storefront, or customer-facing Product visibility
 - customers
 - orders or payments
@@ -313,4 +333,4 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 
 Prisma remains exposed through infrastructure services and narrow Auth, Authorization, Merchant, and AccessManagement stores; there are no general repositories. No seed Users, Merchants, or Roles exist. Permission synchronization is an explicit operational command only.
 
-These items belong to later reviewed steps and are outside B3.1. B3.2 has not started.
+These items belong to later reviewed steps and are outside B3.2. Inventory begins in B4.1, which has not started.

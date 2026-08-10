@@ -1308,3 +1308,183 @@
 - **Status:** Accepted
 - **Decision:** B3.1 adds no partial audit/outbox implementation.
 - **Rationale:** Durable business history belongs to the planned shared transactional foundation.
+
+## ADR-219: ProductVariant is the exact future sellable identity
+
+- **Status:** Accepted
+- **Decision:** Product remains descriptive while ProductVariant is the SKU-bearing identity later commerce domains reference.
+- **Rationale:** Inventory and transactions require one precise sellable identity.
+
+## ADR-220: Variant is tenant-bound through Merchant and Product
+
+- **Status:** Accepted
+- **Decision:** A composite `(merchant_id, product_id)` foreign key is authoritative.
+- **Rationale:** PostgreSQL must reject cross-Merchant Product/Variant combinations.
+
+## ADR-221: Variant identifiers use UUIDv7
+
+- **Status:** Accepted
+- **Decision:** ProductVariant IDs use the repository's database-generated UUIDv7 convention.
+- **Rationale:** Catalogue identity remains consistent with existing internal aggregates.
+
+## ADR-222: SKU is unique per Merchant
+
+- **Status:** Accepted
+- **Decision:** `(merchant_id, sku)` is unique; the same SKU may exist for another Merchant.
+- **Rationale:** SKU is a Merchant's internal sellable identifier, not a global Tteeka namespace.
+
+## ADR-223: SKU is uppercase canonicalized
+
+- **Status:** Accepted
+- **Decision:** Valid trimmed SKU input is uppercased before persistence and lookup.
+- **Rationale:** Casing variants must resolve to one Merchant SKU identity.
+
+## ADR-224: Barcode is optional and Merchant-unique
+
+- **Status:** Accepted
+- **Decision:** A present case-preserving barcode is unique per Merchant; multiple nulls are valid.
+- **Rationale:** Retail and internal scanner labels are optional tenant-owned identifiers.
+
+## ADR-225: Size and colour are bounded nullable strings
+
+- **Status:** Accepted
+- **Decision:** B3.2 supports explicit nullable size and colour without combination uniqueness.
+- **Rationale:** Simple variants need metadata without premature option aggregates.
+
+## ADR-226: Generic Variant attribute JSON is rejected
+
+- **Status:** Accepted
+- **Decision:** ProductVariant has no attributes, options, or option-values JSON field.
+- **Rationale:** Future option types require deliberate structured design.
+
+## ADR-227: Variants default INACTIVE
+
+- **Status:** Accepted
+- **Decision:** New Variants start unpriced and INACTIVE.
+- **Rationale:** A future sellable identity is not commercially usable before pricing.
+
+## ADR-228: ACTIVE requires current selling price
+
+- **Status:** Accepted
+- **Decision:** Activation requires both selling price and price currency, otherwise HTTP 422.
+- **Rationale:** ACTIVE must not imply a sellable Variant with undefined monetary state.
+
+## ADR-229: Product lifecycle does not cascade to Variants
+
+- **Status:** Accepted
+- **Decision:** Product status changes never rewrite child Variant status.
+- **Rationale:** Each retained aggregate has an independent administrative lifecycle.
+
+## ADR-230: Current money uses PostgreSQL BIGINT
+
+- **Status:** Accepted
+- **Decision:** Selling and cost amounts are signed BIGINT integers.
+- **Rationale:** Integer money avoids fractional and floating-point ambiguity.
+
+## ADR-231: Money uses JSON decimal strings
+
+- **Status:** Accepted
+- **Decision:** APIs accept and return canonical base-10 strings within signed BIGINT bounds.
+- **Rationale:** JavaScript number serialization cannot safely represent all valid stored amounts.
+
+## ADR-232: Cost may exceed selling price
+
+- **Status:** Accepted
+- **Decision:** Cost is nullable/nonnegative and is not constrained below selling price.
+- **Rationale:** Below-cost sales are legitimate business states.
+
+## ADR-233: Price currency is snapshotted
+
+- **Status:** Accepted
+- **Decision:** Price writes copy the Merchant's current currency into current state and history.
+- **Rationale:** Every stored amount retains explicit monetary meaning.
+
+## ADR-234: Merchant currency changes do not reinterpret old prices
+
+- **Status:** Accepted
+- **Decision:** Settings changes do not rewrite Variant amounts or currency snapshots.
+- **Rationale:** Existing monetary states remain historically stable.
+
+## ADR-235: FX conversion is absent
+
+- **Status:** Accepted
+- **Decision:** Currency changes require explicit repricing and perform no conversion.
+- **Rationale:** Automatic FX needs a separate reviewed rates and rounding model.
+
+## ADR-236: Current price is stored on ProductVariant
+
+- **Status:** Accepted
+- **Decision:** ProductVariant carries the current selling/cost/currency/update state.
+- **Rationale:** Ordinary catalogue reads should not reconstruct current state from history.
+
+## ADR-237: Changed prices append VariantPriceHistory
+
+- **Status:** Accepted
+- **Decision:** Every changed selling price, cost, or effective currency adds one immutable snapshot.
+- **Rationale:** Prior price states must remain observable.
+
+## ADR-238: Identical price PUT is idempotent
+
+- **Status:** Accepted
+- **Decision:** An identical desired state changes neither update time nor history.
+- **Rationale:** Repeated network requests must not create false history.
+
+## ADR-239: Price current state and history are transactional
+
+- **Status:** Accepted
+- **Decision:** PostgreSQL row locking and one transaction serialize current-state update plus history insert.
+- **Rationale:** Concurrency must never leave current price and committed history inconsistent.
+
+## ADR-240: Price history is domain history, not general audit
+
+- **Status:** Accepted
+- **Decision:** VariantPriceHistory records monetary states without actor/request metadata.
+- **Rationale:** Cross-domain audit and outbox remain a later shared concern.
+
+## ADR-241: Price management has a separate Permission
+
+- **Status:** Accepted
+- **Decision:** `catalogue.price.manage` alone protects price PUT and history.
+- **Rationale:** Price/cost authority is distinct from catalogue identity management.
+
+## ADR-242: Normal catalogue reads hide cost
+
+- **Status:** Accepted
+- **Decision:** List, detail, and exact lookup expose selling price but never cost.
+- **Rationale:** Cost is sensitive management information.
+
+## ADR-243: Catalogue Permissions imply nothing
+
+- **Status:** Accepted
+- **Decision:** Read, manage, and price-manage remain exact independent grants.
+- **Rationale:** B1.9 exact-Permission semantics remain authoritative.
+
+## ADR-244: Exact Variant lookup is Merchant scoped
+
+- **Status:** Accepted
+- **Decision:** Lookup accepts exactly one SKU or barcode and searches the resolved Merchant only.
+- **Rationale:** Identifier existence must not leak across tenants.
+
+## ADR-245: Inventory quantity does not belong in B3.2 catalogue
+
+- **Status:** Accepted
+- **Decision:** ProductVariant contains no stock, availability, held, or reserved fields.
+- **Rationale:** B4.1 owns inventory authority and its transactional model.
+
+## ADR-246: PostgreSQL remains catalogue and price authority
+
+- **Status:** Accepted
+- **Decision:** All B3.2 reads, uniqueness, tenant keys, and price serialization use PostgreSQL.
+- **Rationale:** A single authoritative store provides enforceable consistency.
+
+## ADR-247: Redis catalogue caching remains deferred
+
+- **Status:** Accepted
+- **Decision:** B3.2 adds no Product, Variant, lookup, or price cache.
+- **Rationale:** There is no measured need or reviewed invalidation design.
+
+## ADR-248: B4.1 owns inventory
+
+- **Status:** Accepted
+- **Decision:** B3.2 stops at sellable identity and price; B4.1 begins stock authority.
+- **Rationale:** Catalogue and inventory are separate bounded domains.

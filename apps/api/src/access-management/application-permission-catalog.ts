@@ -13,6 +13,10 @@ export const APPLICATION_PERMISSION_CATALOG = [
     description: 'Manage merchant product catalogue',
   },
   {
+    key: CATALOGUE_PERMISSIONS.PRICE_MANAGE,
+    description: 'Manage merchant catalogue pricing and cost history',
+  },
+  {
     key: CATALOGUE_PERMISSIONS.READ,
     description: 'Read merchant product catalogue',
   },

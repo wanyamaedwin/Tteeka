@@ -21,7 +21,10 @@ const RECORD: ProductRecord = {
   updatedAt: new Date('2026-08-10T01:00:00.000Z'),
 };
 
-class FakeStore implements CatalogueStore {
+class FakeStore implements Pick<
+  CatalogueStore,
+  'createProduct' | 'listProducts' | 'findProduct' | 'updateProduct'
+> {
   public readonly calls: unknown[][] = [];
   public record: ProductRecord | null = RECORD;
 

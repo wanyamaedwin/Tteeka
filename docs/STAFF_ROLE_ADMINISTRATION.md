@@ -49,7 +49,7 @@ Roles use ACTIVE/DISABLED lifecycle rather than hard deletion. Disabling retains
 
 ## Permission replacement and catalog
 
-`PUT roles/:roleId/permissions` atomically replaces the complete RolePermission set. Duplicate keys are deduplicated; an empty array removes all grants. After B3.1, a new grant must be one of the ten code-owned catalog keys and have an ACTIVE PostgreSQL Permission record. Unknown application keys are HTTP 400; unavailable or DEPRECATED catalog records are generic HTTP 422. Failed validation rolls back without partial change.
+`PUT roles/:roleId/permissions` atomically replaces the complete RolePermission set. Duplicate keys are deduplicated; an empty array removes all grants. After B3.2, a new grant must be one of the eleven code-owned catalog keys and have an ACTIVE PostgreSQL Permission record. Unknown application keys are HTTP 400; unavailable or DEPRECATED catalog records are generic HTTP 422. Failed validation rolls back without partial change.
 
 ```text
 merchant.profile.manage
@@ -66,7 +66,7 @@ catalogue.read
 
 `GET permissions` returns only catalog-defined keys currently ACTIVE in PostgreSQL, sorted by key with code-owned descriptions. Unknown database Permissions are neither exposed nor deleted. DEPRECATED catalog Permissions are not assignable or effective, while existing historical RolePermission links remain stored and visible in Role administration.
 
-B3.1 expands the application catalog from eight to ten production keys without changing synchronization semantics.
+B3.1 expands the application catalog from eight to ten production keys, and B3.2 adds only `catalogue.price.manage` for a total of eleven, without changing synchronization semantics.
 
 ## Explicit Permission synchronization
 
