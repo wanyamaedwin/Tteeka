@@ -10,7 +10,7 @@ GET /api/v1/merchants/:merchantId/context
 
 The route runs `SessionAuthGuard` first and `MerchantContextGuard` second. Authentication establishes the global User at `request.auth`; authorization then resolves the requested Merchant at `request.merchantContext`. Neither guard is global, and merchant context is never stored in or inferred from the Session.
 
-B1.8 exposes context and a pure permission evaluator. B1.9 adds a separate declarative PermissionGuard for future merchant business routes, but it does not protect this context-inspection endpoint, seed authorization data, or add role-management APIs.
+B1.8 exposes context and a pure permission evaluator. B1.9 adds a separate declarative PermissionGuard. B2.1 consumes both for real Merchant profile/settings operations, while the context-inspection endpoint remains ungated by a specific business Permission. No authorization data is seeded and no role-management API exists.
 
 ## Request contract
 
@@ -89,15 +89,15 @@ request.merchantContext  = what can that User resolve in this requested Merchant
 
 There are no wildcard semantics, deny rules, Role-name shortcuts, hierarchy, implication, or prefix matching. A key such as `order.*` is an ordinary literal key if it exists.
 
-## Relationship to PermissionGuard
+## Relationship to PermissionGuard and B2.1
 
-Merchant context resolution is not itself specific Permission enforcement. On a future protected merchant route, `MerchantContextGuard` resolves fresh PostgreSQL state and attaches `request.merchantContext`; B1.9's `PermissionGuard` then consumes that request-local context without another database query. The required order is `SessionAuthGuard`, `MerchantContextGuard`, then `PermissionGuard`.
+Merchant context resolution is not itself specific Permission enforcement. On B2.1's profile/settings routes, `MerchantContextGuard` resolves fresh PostgreSQL state and attaches `request.merchantContext`; `PermissionGuard` then consumes that request-local context without another database query. `MerchantService` scopes persistence through the resolved `merchantContext.merchant.id`, not a second independently trusted route value. The required order is `SessionAuthGuard`, `MerchantContextGuard`, then `PermissionGuard`.
 
 The context endpoint deliberately retains B1.8 semantics: an ACTIVE Membership with zero Roles receives HTTP 200 with empty Roles and Permissions. See [PERMISSION_ENFORCEMENT.md](PERMISSION_ENFORCEMENT.md).
 
 ## Deferred work
 
-- business endpoints protected by Permissions
+- additional business endpoints protected by Permissions
 - default Roles, default Permissions, and catalog seeding
 - Role, Permission, MembershipRole, or staff-management APIs
 - authorization caching and invalidation infrastructure

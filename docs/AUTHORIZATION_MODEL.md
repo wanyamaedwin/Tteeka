@@ -2,7 +2,7 @@
 
 ## Purpose and boundary
 
-B1.3 establishes Tteeka's merchant-scoped role-based authorization persistence foundation. B1.8 consumes that model to resolve effective context for one authenticated User and explicitly requested Merchant. It still does not expose role-management APIs, seed authorization data, or enforce Permissions on business routes.
+B1.3 establishes Tteeka's merchant-scoped role-based authorization persistence foundation. B1.8 resolves effective context, B1.9 enforces declarative requirements, and B2.1 introduces the first Permission-protected Merchant business routes. Role-management APIs and authorization seeding still do not exist.
 
 `User` remains the global human identity. `MerchantMembership` remains the boundary that says a User belongs to a Merchant. Authorization attaches to that membership rather than directly to User, so one person can have different responsibilities at different merchants.
 
@@ -129,7 +129,7 @@ Independent foreign keys on only `membership_id` and `role_id` would permit a fu
 
 The resolved authorization data lives at `request.merchantContext`, separately from global identity at `request.auth`. PostgreSQL is consulted on every context request, so no Session or Redis cache can preserve stale authorization after a lifecycle change. `PermissionEvaluator` implements only exact, case-sensitive membership checks; it gives Role names no authority and implements neither wildcards nor denies. See [MERCHANT_CONTEXT.md](MERCHANT_CONTEXT.md).
 
-B1.9 completes the execution chain for future merchant routes:
+B1.9 completes the execution chain now consumed by B2.1 Merchant routes:
 
 ```text
 User -> MerchantMembership -> MembershipRole -> Role
@@ -143,4 +143,4 @@ User -> MerchantMembership -> MembershipRole -> Role
 
 No Role or Permission relation lives directly on `User`, and `MerchantMembership` has no single `roleId`: those designs would violate merchant context or the multiple-role requirement. No `isOwner`, `isAdmin`, `isManager`, or similar authorization boolean exists.
 
-B1.3 seeds neither default Roles nor a Permission catalog. Owner, Manager, and other role bootstrap behavior requires a later reviewed design, as does the stable capability catalog. B1.9 provides single-Permission route declaration and enforcement, but real business-route policy, multi-Permission metadata, default authorization configuration, and administration remain deferred.
+B1.3 seeds neither default Roles nor a Permission catalog. B2.1 defines the first canonical application keys—`merchant.profile.read`, `merchant.profile.manage`, `merchant.settings.read`, and `merchant.settings.manage`—in its production module without automatically inserting them. Owner, Manager, and other bootstrap behavior remains B2.2 work. Single-Permission exact route policy is now real; multi-Permission metadata and default authorization administration remain deferred.

@@ -906,3 +906,111 @@
 - **Status:** Accepted
 - **Decision:** B1.9 completes the B1 authentication and authorization foundation; commerce modules begin afterward.
 - **Rationale:** Tteeka now has credential, Session, request identity, revocation, tenant context, and exact route-Permission primitives.
+
+## ADR-152: B2.1 reuses the Merchant identity record
+
+- **Status:** Accepted
+- **Decision:** Profile and core settings use the existing typed Merchant columns rather than a generic settings table or blob.
+- **Rationale:** Existing ownership is explicit and preserves type safety, validation, and migration discipline.
+
+## ADR-153: Profile and settings use separate APIs
+
+- **Status:** Accepted
+- **Decision:** Merchant profile and core operational settings have separate read/update routes even though both persist on Merchant.
+- **Rationale:** Separate contracts prevent cross-domain field updates and allow independent Permissions and future evolution.
+
+## ADR-154: Domain policy belongs to its enforcing domain
+
+- **Status:** Accepted
+- **Decision:** B2.1 contains only identity/contact fields plus currency and timezone; operational policy is deferred to its owner.
+- **Rationale:** A generic Merchant settings surface would separate policy configuration from the domain that validates and enforces it.
+
+## ADR-155: COD policy is deferred to payment/COD
+
+- **Status:** Accepted
+- **Decision:** COD eligibility, deposits, limits, failed-delivery costs, and verification rules are not Merchant core settings.
+- **Rationale:** They require payment, fulfilment, and risk behavior that B2.1 does not implement.
+
+## ADR-156: Stock-hold policy is deferred to inventory reservation
+
+- **Status:** Accepted
+- **Decision:** Stock-hold triggers, expiry, and high-demand policy are excluded from B2.1.
+- **Rationale:** Reservation policy belongs with inventory state and concurrency rules.
+
+## ADR-157: Delivery policy is deferred to fulfilment
+
+- **Status:** Accepted
+- **Decision:** Delivery fees, zones, service levels, failed-delivery costs, and rider proof rules are excluded from B2.1.
+- **Rationale:** These settings require a delivery model and enforcement workflow.
+
+## ADR-158: Return policy is deferred to returns
+
+- **Status:** Accepted
+- **Decision:** Return eligibility, windows, and restocking fees are excluded from B2.1.
+- **Rationale:** Returns policy belongs with order history, item condition, refund, and inventory behavior.
+
+## ADR-159: B2.1 defines canonical Merchant Permission keys
+
+- **Status:** Accepted
+- **Decision:** Merchant profile/settings read and manage keys are centralized as stable application constants.
+- **Rationale:** Central constants prevent literal drift between route policy and tests.
+
+## ADR-160: B2.1 does not seed Permissions
+
+- **Status:** Accepted
+- **Decision:** Canonical keys are code-defined but are not inserted at startup or through migration SQL, and no Roles are created automatically.
+- **Rationale:** Bootstrap and administration policy requires the dedicated B2.2 review.
+
+## ADR-161: Every Merchant business route uses the complete guard pipeline
+
+- **Status:** Accepted
+- **Decision:** B2.1 routes explicitly order SessionAuthGuard, MerchantContextGuard, then PermissionGuard.
+- **Rationale:** Authentication, current tenant resolution, and exact business capability enforcement remain separate concerns.
+
+## ADR-162: Manage does not imply read
+
+- **Status:** Accepted
+- **Decision:** Profile/settings manage Permissions do not automatically grant their corresponding read Permissions.
+- **Rationale:** B1 authorization has exact grant-only semantics and no Permission hierarchy.
+
+## ADR-163: Resolved Merchant context is the service tenant authority
+
+- **Status:** Accepted
+- **Decision:** Merchant operations use `merchantContext.merchant.id` after authorization rather than trusting another route-derived ID.
+- **Rationale:** Carrying the resolved tenant boundary into persistence reduces accidental cross-tenant mismatches.
+
+## ADR-164: Merchant and authentication phones share Uganda normalization
+
+- **Status:** Accepted
+- **Decision:** Login and Merchant profile updates use one neutral Uganda E.164 normalizer.
+- **Rationale:** A single pure implementation prevents canonicalization drift across identity and business APIs.
+
+## ADR-165: Merchant email is canonical but not unique
+
+- **Status:** Accepted
+- **Decision:** Merchant email is trimmed, validated, and lowercased without adding a global uniqueness constraint.
+- **Rationale:** Contact reuse is allowed by the accepted data model and B2.1 does not invent a constraint.
+
+## ADR-166: Merchant currency is canonical uppercase ISO-style text
+
+- **Status:** Accepted
+- **Decision:** Currency accepts exactly three ASCII letters and persists uppercase in the existing `char(3)` column.
+- **Rationale:** This provides stable storage without adding FX conversion or exchange-rate dependencies.
+
+## ADR-167: Merchant timezone uses validated IANA identifiers
+
+- **Status:** Accepted
+- **Decision:** Timezone values are length-bounded and validated/canonicalized through Node `Intl`.
+- **Rationale:** The runtime already supplies authoritative IANA validation without another dependency.
+
+## ADR-168: Commercial-history currency restrictions are deferred
+
+- **Status:** Accepted
+- **Decision:** B2.1 permits currency changes because no Order, Payment, or ledger records exist; future financial domains will define snapshot and restriction rules.
+- **Rationale:** Restricting changes without commercial history would encode a premature invariant.
+
+## ADR-169: Merchant changes are not yet audit logged
+
+- **Status:** Accepted
+- **Decision:** B2.1 introduces no fake audit log or outbox; mutable Merchant changes will integrate with the planned B14 foundation.
+- **Rationale:** Durable audit semantics require the shared transactional audit/outbox architecture.

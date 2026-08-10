@@ -1,6 +1,6 @@
 # Tteeka Backend
 
-Tteeka is a Uganda-first WhatsApp Commerce Operating System. This repository currently contains the completed B1 authentication and authorization foundation through B1.9.
+Tteeka is a Uganda-first WhatsApp Commerce Operating System. This repository contains the completed B1 authentication and authorization foundation plus B2.1 Merchant profile and core operational settings.
 
 ## Requirements
 
@@ -117,7 +117,18 @@ The opaque Session persistence foundation now exists. `@tteeka/security` generat
 
 `POST /api/v1/auth/login` authenticates an ACTIVE User by normalized Uganda phone and password, creates a fresh opaque Session, and returns its raw token only through an HttpOnly cookie. `GET /api/v1/auth/me` resolves that cookie into safe User/Session context. `POST /api/v1/auth/logout` revokes the current Session idempotently, and guarded `POST /api/v1/auth/logout-all` revokes all Sessions for the authenticated global User. Revoked Session rows are retained rather than deleted. See [docs/LOGIN_FLOW.md](docs/LOGIN_FLOW.md), [docs/AUTHENTICATED_REQUESTS.md](docs/AUTHENTICATED_REQUESTS.md), and [docs/SESSION_REVOCATION.md](docs/SESSION_REVOCATION.md).
 
-The merchant-scoped authorization data model includes database-enforced protection against cross-merchant role assignments. Authenticated callers can resolve current context through `GET /api/v1/merchants/:merchantId/context`; Session authentication and Merchant authorization remain separate request contexts, and PostgreSQL lifecycle state is authoritative on every request. Future merchant modules can declare one exact required capability with `@RequirePermission` and enforce it through the route-scoped `PermissionGuard`. No current business API uses this pipeline because commerce modules begin after B1; default Roles, default Permissions, and authorization-management APIs remain unimplemented. See [docs/AUTHORIZATION_MODEL.md](docs/AUTHORIZATION_MODEL.md), [docs/MERCHANT_CONTEXT.md](docs/MERCHANT_CONTEXT.md), and [docs/PERMISSION_ENFORCEMENT.md](docs/PERMISSION_ENFORCEMENT.md).
+The merchant-scoped authorization data model includes database-enforced protection against cross-merchant role assignments. Authenticated callers can resolve current context through `GET /api/v1/merchants/:merchantId/context`; Session authentication and Merchant authorization remain separate request contexts, and PostgreSQL lifecycle state is authoritative on every request.
+
+B2.1 adds the first production business routes using the route-scoped `PermissionGuard`:
+
+```text
+GET   /api/v1/merchants/:merchantId/profile
+PATCH /api/v1/merchants/:merchantId/profile
+GET   /api/v1/merchants/:merchantId/settings
+PATCH /api/v1/merchants/:merchantId/settings
+```
+
+They expose bounded Merchant profile and core currency/timezone settings through exact canonical Permissions. COD, stock-hold, delivery, returns, and other domain-specific policies remain deferred; staff and Role administration comes next in B2.2. See [docs/MERCHANT_PROFILE_SETTINGS.md](docs/MERCHANT_PROFILE_SETTINGS.md), [docs/AUTHORIZATION_MODEL.md](docs/AUTHORIZATION_MODEL.md), [docs/MERCHANT_CONTEXT.md](docs/MERCHANT_CONTEXT.md), and [docs/PERMISSION_ENFORCEMENT.md](docs/PERMISSION_ENFORCEMENT.md).
 
 ## Validation
 
@@ -133,4 +144,4 @@ Use `npm run format` to apply Prettier formatting.
 
 The test command includes real identity-schema integration tests and therefore requires the local PostgreSQL infrastructure with the migration applied.
 
-See [docs/IDENTITY_MODEL.md](docs/IDENTITY_MODEL.md) for identity relationships, [docs/PASSWORD_CREDENTIALS.md](docs/PASSWORD_CREDENTIALS.md) for credential storage and hashing boundaries, [docs/AUTHORIZATION_MODEL.md](docs/AUTHORIZATION_MODEL.md) for merchant-scoped authorization persistence, [docs/MERCHANT_CONTEXT.md](docs/MERCHANT_CONTEXT.md) for context resolution, [docs/PERMISSION_ENFORCEMENT.md](docs/PERMISSION_ENFORCEMENT.md) for declarative exact-Permission enforcement, [docs/SESSION_MODEL.md](docs/SESSION_MODEL.md) for opaque Sessions, [docs/LOGIN_FLOW.md](docs/LOGIN_FLOW.md) for login and cookie issuance, [docs/AUTHENTICATED_REQUESTS.md](docs/AUTHENTICATED_REQUESTS.md) for protected-request resolution, [docs/SESSION_REVOCATION.md](docs/SESSION_REVOCATION.md) for logout behavior, [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) for the exact implementation boundary, and [docs/DATABASE_CONVENTIONS.md](docs/DATABASE_CONVENTIONS.md) for persistence and migration rules.
+See [docs/MERCHANT_PROFILE_SETTINGS.md](docs/MERCHANT_PROFILE_SETTINGS.md) for B2.1 business routes, [docs/IDENTITY_MODEL.md](docs/IDENTITY_MODEL.md) for identity relationships, [docs/PASSWORD_CREDENTIALS.md](docs/PASSWORD_CREDENTIALS.md) for credential storage and hashing boundaries, [docs/AUTHORIZATION_MODEL.md](docs/AUTHORIZATION_MODEL.md) for merchant-scoped authorization persistence, [docs/MERCHANT_CONTEXT.md](docs/MERCHANT_CONTEXT.md) for context resolution, [docs/PERMISSION_ENFORCEMENT.md](docs/PERMISSION_ENFORCEMENT.md) for declarative exact-Permission enforcement, [docs/SESSION_MODEL.md](docs/SESSION_MODEL.md) for opaque Sessions, [docs/LOGIN_FLOW.md](docs/LOGIN_FLOW.md) for login and cookie issuance, [docs/AUTHENTICATED_REQUESTS.md](docs/AUTHENTICATED_REQUESTS.md) for protected-request resolution, [docs/SESSION_REVOCATION.md](docs/SESSION_REVOCATION.md) for logout behavior, [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) for the exact implementation boundary, and [docs/DATABASE_CONVENTIONS.md](docs/DATABASE_CONVENTIONS.md) for persistence and migration rules.

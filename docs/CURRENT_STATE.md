@@ -1,6 +1,6 @@
 # Current State
 
-## B1.9: Declarative permission authorization guard
+## B2.1: Merchant profile and core operational settings
 
 The repository contains a backend-only npm workspace monorepo targeting Node.js 24 LTS.
 
@@ -213,7 +213,26 @@ B1.9 adds declarative exact-Permission enforcement without a schema migration or
 - continued B1.8 context-endpoint access for ACTIVE zero-Role Memberships
 - no global guard, Permission cache, wildcard, deny, or Role-name bypass semantics
 
-See [PERMISSION_ENFORCEMENT.md](PERMISSION_ENFORCEMENT.md) for the future merchant-route usage and failure contract. The B1 authentication and authorization foundation is complete after B1.9.
+See [PERMISSION_ENFORCEMENT.md](PERMISSION_ENFORCEMENT.md) for the merchant-route usage and failure contract. The B1 authentication and authorization foundation is complete after B1.9.
+
+B2.1 adds the first real Merchant business module without a schema migration:
+
+- `MerchantModule`, kept separate from Auth and Authorization modules
+- `GET` and `PATCH /api/v1/merchants/:merchantId/profile`
+- `GET` and `PATCH /api/v1/merchants/:merchantId/settings`
+- the complete route-scoped `SessionAuthGuard -> MerchantContextGuard -> PermissionGuard` pipeline on all four routes
+- canonical `merchant.profile.read`, `merchant.profile.manage`, `merchant.settings.read`, and `merchant.settings.manage` application constants
+- exact Permission separation with no manage-implies-read behavior
+- context-authoritative Merchant IDs and a narrow Merchant-only store
+- strict non-empty PATCH validation with unknown-field rejection
+- shared Uganda phone normalization used by login and Merchant profile updates
+- trimmed/lowercased Merchant email normalization without a uniqueness constraint
+- uppercase three-letter currency normalization and built-in IANA timezone validation
+- bounded, no-store responses with no Session or cookie mutation
+- tenant-safe PostgreSQL-backed profile/settings persistence and HTTP coverage
+- no generic settings table, JSON blob, automatic Permission seeding, status API, audit/outbox, or domain-policy settings
+
+See [MERCHANT_PROFILE_SETTINGS.md](MERCHANT_PROFILE_SETTINGS.md) for the complete API, validation, ownership, and deferred-domain boundary.
 
 The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage therefore does not kill the process: liveness remains independent, while the existing direct `pg` readiness probe reports the outage. The worker constructs the same shared infrastructure but performs no database query, queue work, or business processing.
 
@@ -228,7 +247,7 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - Session renewal, rotation, sliding expiration, retention cleanup, or Redis Session storage
 - a global authentication guard or global public/private route metadata
 - Merchant context, Membership resolution, Role resolution, or Permission resolution during authentication itself
-- production business routes using declarative Permission enforcement
+- additional business routes beyond Merchant profile/core settings
 - multi-Permission requirement metadata or any/all route composition
 - CSRF defense for future authenticated state-changing browser requests
 - password-reset tokens or password-reset workflow
@@ -242,21 +261,22 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - invitation workflow
 - rate limiting, brute-force protection, account lockout, failed-login counters, MFA, or passkeys
 - email login
-- merchant, user, or staff APIs, controllers, or business services
-- business persistence repositories
+- Merchant creation, deletion, or status-management APIs
+- User or staff administration APIs
+- default Permission or Role bootstrap and administration
 - customers or catalogue
 - products or inventory
 - orders or payments
-- cash on delivery (COD)
-- delivery, riders, or returns
+- cash on delivery (COD) settings or behavior
+- stock-hold settings or behavior
+- delivery settings, riders, or returns settings
 - receipts
 - authorization administration, business policies, or audit domain functionality
 - outbox functionality
 - BullMQ, queues, workers, or background jobs
 - WhatsApp, MTN, or Airtel integrations
 - Swagger or OpenAPI
-- business functionality of any kind
 
-Prisma remains exposed through infrastructure services and the narrow Auth store; there are no general identity repositories or business APIs. No seed users or merchants exist.
+Prisma remains exposed through infrastructure services and narrow Auth, Authorization, and Merchant stores; there are no general repositories. No seed users, Merchants, Roles, or Permissions exist.
 
-These items belong to later reviewed steps and are outside B1.9. B2.1 has not started.
+These items belong to later reviewed steps and are outside B2.1. B2.2 has not started.

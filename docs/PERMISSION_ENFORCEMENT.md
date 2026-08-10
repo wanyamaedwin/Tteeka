@@ -2,9 +2,22 @@
 
 ## Purpose and boundary
 
-B1.9 completes Tteeka's B1 authentication and authorization foundation by adding declarative, exact-Permission enforcement for future merchant-scoped routes. It introduces `@RequirePermission(permissionKey)` and `PermissionGuard`; no current production route is permission-gated and no demonstration or business endpoint was added.
+B1.9 completes Tteeka's B1 authentication and authorization foundation by adding declarative, exact-Permission enforcement. B2.1 is its first production consumer through Merchant profile and core-settings routes.
 
-Default Permissions, default Roles, authorization administration, commerce APIs, and authorization auditing remain deferred.
+Default Permissions, default Roles, authorization administration, broader commerce APIs, and authorization auditing remain deferred.
+
+## First production consumer
+
+B2.1 declares its centralized constants rather than duplicating literals:
+
+```ts
+@RequirePermission(MERCHANT_PERMISSIONS.PROFILE_READ)
+@RequirePermission(MERCHANT_PERMISSIONS.PROFILE_MANAGE)
+@RequirePermission(MERCHANT_PERMISSIONS.SETTINGS_READ)
+@RequirePermission(MERCHANT_PERMISSIONS.SETTINGS_MANAGE)
+```
+
+Each route still requires its exact key. A manage Permission does not imply read, and no Owner/Admin label bypasses the guard. See [MERCHANT_PROFILE_SETTINGS.md](MERCHANT_PROFILE_SETTINGS.md).
 
 ## Required guard pipeline
 
@@ -76,7 +89,7 @@ The existing Merchant-context endpoint remains an inspection endpoint rather tha
 - a global secure-by-default guard policy
 - a stable default Permission catalog and default Roles
 - Role, Permission, Membership, and staff-management APIs
-- commerce modules and their real Permission requirements
+- additional commerce modules and their real Permission requirements
 - authorization audit events and outbox integration
 - wildcard, deny, hierarchy, inheritance, or Role-name authority
 - authorization caching or invalidation infrastructure
