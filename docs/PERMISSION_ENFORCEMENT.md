@@ -21,6 +21,8 @@ Each route still requires its exact key. A manage Permission does not imply read
 
 B2.2 applies the same rule to staff, Role, Role-assignment, Role-Permission, and catalog routes. Replacing a Membership's Roles requires `merchant.roles.manage`; `merchant.staff.manage` is insufficient. Role administration is itself authorization configuration protected by exact Permissions. See [STAFF_ROLE_ADMINISTRATION.md](STAFF_ROLE_ADMINISTRATION.md).
 
+B3.1 applies `catalogue.read` to Product list/detail and `catalogue.manage` to Product create/update. Every Product route uses the same three-guard pipeline. A manage-only caller may POST/PATCH but receives 403 from GET list/detail; manage never implies read. See [PRODUCT_CATALOGUE.md](PRODUCT_CATALOGUE.md).
+
 ## Required guard pipeline
 
 A future protected merchant route composes three route-scoped guards in this order:

@@ -1,11 +1,18 @@
-import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Inject,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 
 import { HealthService } from './health.service';
 import type { LivenessResponse, ReadinessResponse } from './health.types';
 
 @Controller('api/v1/health')
 export class HealthController {
-  public constructor(private readonly healthService: HealthService) {}
+  public constructor(
+    @Inject(HealthService) private readonly healthService: HealthService,
+  ) {}
 
   @Get('live')
   public live(): LivenessResponse {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { MERCHANT_PERMISSIONS } from '../merchants/merchant-permissions';
+import { CATALOGUE_PERMISSIONS } from '../catalogue/catalogue-permissions';
 import { ACCESS_MANAGEMENT_PERMISSIONS } from './access-management-permissions';
 import {
   APPLICATION_PERMISSION_CATALOG,
@@ -17,16 +18,17 @@ void test('defines the exact B2.2 Permission constants', () => {
   });
 });
 
-void test('catalog composes exactly the eight implemented production keys', () => {
+void test('catalog composes exactly the ten implemented production keys', () => {
   assert.deepEqual(
     new Set(APPLICATION_PERMISSION_KEYS),
     new Set([
       ...Object.values(MERCHANT_PERMISSIONS),
       ...Object.values(ACCESS_MANAGEMENT_PERMISSIONS),
+      ...Object.values(CATALOGUE_PERMISSIONS),
     ]),
   );
-  assert.equal(APPLICATION_PERMISSION_KEYS.length, 8);
-  assert.equal(new Set(APPLICATION_PERMISSION_KEYS).size, 8);
+  assert.equal(APPLICATION_PERMISSION_KEYS.length, 10);
+  assert.equal(new Set(APPLICATION_PERMISSION_KEYS).size, 10);
 });
 
 void test('catalog is deterministic, described, and excludes test keys', () => {
@@ -42,6 +44,12 @@ void test('catalog is deterministic, described, and excludes test keys', () => {
   );
   assert.equal(
     APPLICATION_PERMISSION_KEYS.some((key) => key.startsWith('test.')),
+    false,
+  );
+  assert.equal(
+    APPLICATION_PERMISSION_KEYS.some((key) =>
+      ['catalogue.price.manage', 'inventory.read', 'order.read'].includes(key),
+    ),
     false,
   );
 });

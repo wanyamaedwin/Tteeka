@@ -1164,3 +1164,147 @@
 - **Status:** Accepted
 - **Decision:** B2.2 introduces no partial AuditLog or outbox implementation.
 - **Rationale:** Immutable authorization history belongs to the planned shared audit/outbox stage.
+
+## ADR-195: Product is the first core commerce aggregate
+
+- **Status:** Accepted
+- **Decision:** B3.1 introduces Product before variants, inventory, orders, or payments.
+- **Rationale:** Stable merchant catalogue identity is the prerequisite for later sellable and transactional concepts.
+
+## ADR-196: Product belongs directly to one Merchant
+
+- **Status:** Accepted
+- **Decision:** Every Product carries an explicit Merchant foreign key with restrictive deletion.
+- **Rationale:** Tenant ownership must be database-visible and enforceable.
+
+## ADR-197: Product identifiers use UUIDv7
+
+- **Status:** Accepted
+- **Decision:** Products use the existing database-generated UUIDv7 convention.
+- **Rationale:** Product identity remains consistent with current internal aggregates.
+
+## ADR-198: Product lifecycle has three states
+
+- **Status:** Accepted
+- **Decision:** Product status is ACTIVE, INACTIVE, or ARCHIVED.
+- **Rationale:** Operations need temporary inactivity and retained retirement without deletion.
+
+## ADR-199: B3.1 Product status transitions are reversible
+
+- **Status:** Accepted
+- **Decision:** Any Product state may transition to any other state.
+- **Rationale:** No immutable downstream commerce history constrains restoration yet.
+
+## ADR-200: Products are retained instead of hard-deleted
+
+- **Status:** Accepted
+- **Decision:** B3.1 exposes lifecycle changes and no Product DELETE operation.
+- **Rationale:** Stable identity should survive operational retirement.
+
+## ADR-201: Product names are not unique within a Merchant
+
+- **Status:** Accepted
+- **Decision:** Duplicate Product names are permitted.
+- **Rationale:** Future variants/SKUs, not display names, distinguish sellable items.
+
+## ADR-202: SKU belongs to ProductVariant
+
+- **Status:** Accepted
+- **Decision:** SKU and barcode are deferred to B3.2 ProductVariant.
+- **Rationale:** A Product is catalogue identity, not yet a sellable variant.
+
+## ADR-203: Category and brand are bounded nullable strings
+
+- **Status:** Accepted
+- **Decision:** B3.1 stores category and brand as case-preserving metadata.
+- **Rationale:** Basic filtering is useful before taxonomy aggregates are justified.
+
+## ADR-204: Category and Brand aggregates are deferred
+
+- **Status:** Accepted
+- **Decision:** B3.1 creates no Category or Brand table/CRUD.
+- **Rationale:** Requirements have not earned taxonomy identity or hierarchy.
+
+## ADR-205: Product JSON metadata is rejected
+
+- **Status:** Accepted
+- **Decision:** Product has no generic metadata, attributes, or options JSON.
+- **Rationale:** B3.2 will model variant attributes explicitly rather than creating an untyped escape hatch.
+
+## ADR-206: Product administration is merchant-context scoped
+
+- **Status:** Accepted
+- **Decision:** Product APIs use merchant-scoped URLs and resolved context as tenant authority.
+- **Rationale:** Persistence cannot be redirected by untrusted route/body tenant fields.
+
+## ADR-207: Missing and foreign Product targets share generic 404
+
+- **Status:** Accepted
+- **Decision:** Product lookups combine Merchant and Product IDs and expose one not-found response.
+- **Rationale:** Cross-tenant existence must not leak.
+
+## ADR-208: catalogue.read protects Product reads
+
+- **Status:** Accepted
+- **Decision:** Product list and detail require `catalogue.read`.
+- **Rationale:** Catalogue visibility is an explicit merchant capability.
+
+## ADR-209: catalogue.manage protects Product writes
+
+- **Status:** Accepted
+- **Decision:** Product create, metadata update, and lifecycle update require `catalogue.manage`.
+- **Rationale:** Catalogue mutation is distinct from viewing.
+
+## ADR-210: Catalogue manage does not imply read
+
+- **Status:** Accepted
+- **Decision:** `catalogue.manage` grants no implicit `catalogue.read` capability.
+- **Rationale:** Existing exact Permission semantics remain authoritative.
+
+## ADR-211: Product list starts with offset pagination
+
+- **Status:** Accepted
+- **Decision:** B3.1 uses page/pageSize offset pagination.
+- **Rationale:** Initial merchant catalogues are modest and transparent pagination is sufficient.
+
+## ADR-212: Product list ordering is deterministic
+
+- **Status:** Accepted
+- **Decision:** Lists sort by Product name then Product UUID.
+- **Rationale:** Stable page boundaries cannot rely on insertion order.
+
+## ADR-213: Basic Product search uses PostgreSQL matching
+
+- **Status:** Accepted
+- **Decision:** Search uses Prisma case-insensitive containment across four bounded fields.
+- **Rationale:** A dedicated search engine or extension is premature.
+
+## ADR-214: Product data is not cached in Redis
+
+- **Status:** Accepted
+- **Decision:** PostgreSQL is read on every B3.1 Product operation.
+- **Rationale:** There is no measured need for catalogue cache invalidation complexity.
+
+## ADR-215: Application Permission catalog expands to ten keys
+
+- **Status:** Accepted
+- **Decision:** `catalogue.read` and `catalogue.manage` join the existing eight canonical keys.
+- **Rationale:** Assignable authority must track implemented production capability.
+
+## ADR-216: Permission synchronization remains explicit
+
+- **Status:** Accepted
+- **Decision:** Sync materializes all ten keys without startup side effects or Role creation.
+- **Rationale:** Operational security mutation remains deliberate and idempotent.
+
+## ADR-217: Product operations do not mutate Sessions
+
+- **Status:** Accepted
+- **Decision:** Product reads/writes do not rotate, renew, or revoke global Sessions.
+- **Rationale:** Authentication and current merchant authorization remain separate boundaries.
+
+## ADR-218: Product changes are not yet audit logged
+
+- **Status:** Accepted
+- **Decision:** B3.1 adds no partial audit/outbox implementation.
+- **Rationale:** Durable business history belongs to the planned shared transactional foundation.

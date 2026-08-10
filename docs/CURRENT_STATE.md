@@ -251,6 +251,20 @@ B2.2 adds tenant-safe authorization administration without a schema migration:
 
 See [STAFF_ROLE_ADMINISTRATION.md](STAFF_ROLE_ADMINISTRATION.md) for API contracts, lifecycle rules, exact replacement behavior, synchronization, and deferred onboarding/audit boundaries.
 
+B3.1 adds the first core commerce aggregate and fifth migration:
+
+- Merchant-owned Product persistence with UUIDv7 identifiers
+- ACTIVE, INACTIVE, and ARCHIVED reversible lifecycle states with no hard delete
+- strict Product create, list, detail, and update APIs
+- bounded nullable description/category/brand metadata
+- case-insensitive basic search and category/brand filtering
+- deterministic name/ID ordering and offset pagination
+- exact `catalogue.read` and `catalogue.manage` enforcement
+- a ten-key application Permission catalog and unchanged explicit synchronization
+- PostgreSQL-backed tenant-isolation, lifecycle, filter, pagination, and HTTP coverage
+
+See [PRODUCT_CATALOGUE.md](PRODUCT_CATALOGUE.md) for the complete B3.1 contract.
+
 The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage therefore does not kill the process: liveness remains independent, while the existing direct `pg` readiness probe reports the outage. The worker constructs the same shared infrastructure but performs no database query, queue work, or business processing.
 
 ## Explicitly not implemented
@@ -282,7 +296,10 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - Merchant creation, deletion, or status-management APIs
 - User or staff administration APIs
 - Role hierarchy, inheritance, wildcard, deny, or Owner/Admin bypass semantics
-- products, catalogue, inventory, or customers
+- ProductVariant, SKU, barcode, pricing, price history, discounts, or cost price
+- inventory, stock holds, warehouses, or Product images/media
+- Category or Brand CRUD/tables, public storefront, or customer-facing Product visibility
+- customers
 - orders or payments
 - cash on delivery (COD) settings or behavior
 - stock-hold settings or behavior
@@ -296,4 +313,4 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 
 Prisma remains exposed through infrastructure services and narrow Auth, Authorization, Merchant, and AccessManagement stores; there are no general repositories. No seed Users, Merchants, or Roles exist. Permission synchronization is an explicit operational command only.
 
-These items belong to later reviewed steps and are outside B2.2. B3.1 has not started.
+These items belong to later reviewed steps and are outside B3.1. B3.2 has not started.

@@ -1,4 +1,5 @@
 import { MERCHANT_PERMISSIONS } from '../merchants/merchant-permissions';
+import { CATALOGUE_PERMISSIONS } from '../catalogue/catalogue-permissions';
 import { ACCESS_MANAGEMENT_PERMISSIONS } from './access-management-permissions';
 
 export interface ApplicationPermissionCatalogEntry {
@@ -7,6 +8,14 @@ export interface ApplicationPermissionCatalogEntry {
 }
 
 export const APPLICATION_PERMISSION_CATALOG = [
+  {
+    key: CATALOGUE_PERMISSIONS.MANAGE,
+    description: 'Manage merchant product catalogue',
+  },
+  {
+    key: CATALOGUE_PERMISSIONS.READ,
+    description: 'Read merchant product catalogue',
+  },
   {
     key: MERCHANT_PERMISSIONS.PROFILE_MANAGE,
     description: 'Manage merchant profile information',

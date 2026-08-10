@@ -144,7 +144,18 @@ PUT   /api/v1/merchants/:merchantId/roles/:roleId/permissions
 GET   /api/v1/merchants/:merchantId/permissions
 ```
 
-Staff addition currently targets an existing ACTIVE Tteeka User; signup and invitations remain deferred. Run `npm run permissions:sync` explicitly to create/synchronize the eight-key code-owned Permission catalog. The command never creates default Roles and does not run at API startup. See [docs/STAFF_ROLE_ADMINISTRATION.md](docs/STAFF_ROLE_ADMINISTRATION.md). B3.1 Product Catalogue comes next.
+Staff addition currently targets an existing ACTIVE Tteeka User; signup and invitations remain deferred. Run `npm run permissions:sync` explicitly to create/synchronize the ten-key code-owned Permission catalog. The command never creates default Roles and does not run at API startup. See [docs/STAFF_ROLE_ADMINISTRATION.md](docs/STAFF_ROLE_ADMINISTRATION.md).
+
+B3.1 adds the first Product Catalogue routes:
+
+```text
+GET   /api/v1/merchants/:merchantId/products
+POST  /api/v1/merchants/:merchantId/products
+GET   /api/v1/merchants/:merchantId/products/:productId
+PATCH /api/v1/merchants/:merchantId/products/:productId
+```
+
+`catalogue.read` protects list/detail and `catalogue.manage` protects create/update with no implied hierarchy. Variants, SKUs, and pricing are deferred to B3.2 and later stages. See [docs/PRODUCT_CATALOGUE.md](docs/PRODUCT_CATALOGUE.md).
 
 ## Validation
 

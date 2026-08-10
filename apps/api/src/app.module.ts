@@ -5,6 +5,7 @@ import { ConfigurationModule } from './configuration/configuration.module';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { AuthorizationModule } from './authorization/authorization.module';
+import { CatalogueModule } from './catalogue/catalogue.module';
 import { HealthModule } from './health/health.module';
 import { MerchantModule } from './merchants/merchant.module';
 
@@ -17,6 +18,7 @@ import { MerchantModule } from './merchants/merchant.module';
     AuthorizationModule,
     MerchantModule,
     AccessManagementModule,
+    CatalogueModule,
   ],
 })
 export class AppModule {}

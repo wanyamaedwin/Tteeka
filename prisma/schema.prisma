@@ -45,6 +45,14 @@ enum RoleStatus {
   @@map("role_status")
 }
 
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+
+  @@map("product_status")
+}
+
 model Merchant {
   id          String         @id(map: "merchants_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
   displayName String         @map("display_name") @db.VarChar(160)
@@ -59,9 +67,30 @@ model Merchant {
 
   memberships MerchantMembership[]
   roles       Role[]
+  products    Product[]
 
   @@index([status], map: "merchants_status_idx")
   @@map("merchants")
+}
+
+model Product {
+  id          String        @id(map: "products_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  merchantId  String        @map("merchant_id") @db.Uuid
+  name        String        @db.VarChar(160)
+  description String?       @db.VarChar(2000)
+  category    String?       @db.VarChar(120)
+  brand       String?       @db.VarChar(120)
+  status      ProductStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "products_merchant_id_fkey")
+
+  @@index([merchantId, status], map: "products_merchant_id_status_idx")
+  @@index([merchantId, name], map: "products_merchant_id_name_idx")
+  @@index([merchantId, category], map: "products_merchant_id_category_idx")
+  @@index([merchantId, brand], map: "products_merchant_id_brand_idx")
+  @@map("products")
 }
 
 model User {
