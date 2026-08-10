@@ -798,3 +798,111 @@
 - **Status:** Accepted
 - **Decision:** B1.8 introduces no Permission decorator, Permission guard, or Permission-protected business endpoint.
 - **Rationale:** Enforcement metadata, composition rules, and business-route policy require the next reviewed checkpoint.
+
+## ADR-134: Routes declare one Permission with RequirePermission
+
+- **Status:** Accepted
+- **Decision:** Future merchant routes declare a required exact capability through `@RequirePermission(permissionKey)`.
+- **Rationale:** Declarative metadata keeps authorization policy beside the protected handler without mixing it into business logic.
+
+## ADR-135: Initial route metadata contains exactly one Permission
+
+- **Status:** Accepted
+- **Decision:** B1.9 supports one required Permission per class or method and no any/all metadata modes.
+- **Rationale:** Single-key policy is sufficient before real commerce routes establish justified composition needs.
+
+## ADR-136: PermissionGuard uses only request Merchant context
+
+- **Status:** Accepted
+- **Decision:** PermissionGuard consumes B1.8 `request.merchantContext` and performs no persistence lookup.
+- **Rationale:** Membership, Role, and Permission state has already been resolved for the current request.
+
+## ADR-137: Route Permission matching is exact and case-sensitive
+
+- **Status:** Accepted
+- **Decision:** Required Permission strings are preserved and matched without normalization or pattern expansion.
+- **Rationale:** A guard must enforce the precise stable capability declared by developer code.
+
+## ADR-138: PermissionGuard delegates to PermissionEvaluator
+
+- **Status:** Accepted
+- **Decision:** PermissionGuard calls `PermissionEvaluator.hasPermission` rather than duplicating set-membership logic.
+- **Rationale:** One evaluator abstraction keeps Permission semantics centralized and independently testable.
+
+## ADR-139: Permission denial is generic
+
+- **Status:** Accepted
+- **Decision:** Missing exact grants return HTTP 403 with `Forbidden.` and no required-key or context details.
+- **Rationale:** Authorization denials must not disclose internal Roles, Permissions, or tenant relationships.
+
+## ADR-140: Missing Permission metadata fails closed
+
+- **Status:** Accepted
+- **Decision:** PermissionGuard without `@RequirePermission` produces a generic 500-class failure.
+- **Rationale:** Guard use without policy is server misconfiguration and must never become accidental default allow.
+
+## ADR-141: Missing Merchant context fails as misconfiguration
+
+- **Status:** Accepted
+- **Decision:** PermissionGuard without `request.merchantContext` produces a generic 500-class failure.
+- **Rationale:** The missing prerequisite indicates incorrect route composition rather than an ordinary denied grant.
+
+## ADR-142: Merchant route guards have a fixed responsibility order
+
+- **Status:** Accepted
+- **Decision:** Protected merchant routes order SessionAuthGuard, MerchantContextGuard, then PermissionGuard.
+- **Rationale:** Authentication, tenant-context resolution, and exact capability enforcement are separate dependent decisions.
+
+## ADR-143: PermissionGuard remains route-scoped
+
+- **Status:** Accepted
+- **Decision:** PermissionGuard is explicitly attached only to routes that declare a required Permission.
+- **Rationale:** Tteeka has no substantial production commerce route surface requiring a global policy yet.
+
+## ADR-144: Global secure-by-default authorization remains deferred
+
+- **Status:** Accepted
+- **Decision:** B1.9 introduces no `APP_GUARD`, global PermissionGuard, or `@Public` metadata infrastructure.
+- **Rationale:** A global policy should be designed against real production route categories rather than hypothetical endpoints.
+
+## ADR-145: Declarative enforcement adds no wildcard or deny semantics
+
+- **Status:** Accepted
+- **Decision:** PermissionGuard retains grant-only exact-key behavior with no wildcard, deny, priority, or inheritance rules.
+- **Rationale:** Route metadata does not justify broadening the accepted B1.8 Permission model.
+
+## ADR-146: Role names never bypass PermissionGuard
+
+- **Status:** Accepted
+- **Decision:** PermissionGuard does not inspect Role names and grants no implicit authority to them.
+- **Rationale:** Merchant-local labels are mutable display configuration rather than stable capabilities.
+
+## ADR-147: Owner and Admin have no implicit authority
+
+- **Status:** Accepted
+- **Decision:** B1.9 adds no Owner, Admin, superuser, or similar Permission bypass.
+- **Rationale:** Every authorized route call must contain the exact declared Permission in resolved context.
+
+## ADR-148: B1.9 adds no production authorization probe
+
+- **Status:** Accepted
+- **Decision:** No production endpoint exists solely to demonstrate PermissionGuard.
+- **Rationale:** Production routes must represent real product capabilities rather than test scaffolding.
+
+## ADR-149: Test-only controllers prove guard behavior
+
+- **Status:** Accepted
+- **Decision:** Real HTTP/PostgreSQL PermissionGuard behavior is tested through a controller registered only in a test module.
+- **Rationale:** This validates the complete Nest guard pipeline without expanding the production API surface.
+
+## ADR-150: PostgreSQL remains authority before PermissionGuard
+
+- **Status:** Accepted
+- **Decision:** MerchantContextGuard resolves PostgreSQL state afresh before request-local PermissionGuard evaluation.
+- **Rationale:** Immediate lifecycle changes remain effective without a second guard query, Session snapshot, or authorization cache.
+
+## ADR-151: Declarative enforcement completes the B1 security foundation
+
+- **Status:** Accepted
+- **Decision:** B1.9 completes the B1 authentication and authorization foundation; commerce modules begin afterward.
+- **Rationale:** Tteeka now has credential, Session, request identity, revocation, tenant context, and exact route-Permission primitives.

@@ -129,8 +129,18 @@ Independent foreign keys on only `membership_id` and `role_id` would permit a fu
 
 The resolved authorization data lives at `request.merchantContext`, separately from global identity at `request.auth`. PostgreSQL is consulted on every context request, so no Session or Redis cache can preserve stale authorization after a lifecycle change. `PermissionEvaluator` implements only exact, case-sensitive membership checks; it gives Role names no authority and implements neither wildcards nor denies. See [MERCHANT_CONTEXT.md](MERCHANT_CONTEXT.md).
 
+B1.9 completes the execution chain for future merchant routes:
+
+```text
+User -> MerchantMembership -> MembershipRole -> Role
+     -> RolePermission -> Permission -> ResolvedMerchantContext
+     -> PermissionEvaluator -> PermissionGuard
+```
+
+`@RequirePermission` declares one exact key, and route-scoped `PermissionGuard` evaluates it against the already-resolved context. The guard performs no persistence lookup and Role names still provide no authority or bypass. See [PERMISSION_ENFORCEMENT.md](PERMISSION_ENFORCEMENT.md).
+
 ## Intentional omissions and future direction
 
 No Role or Permission relation lives directly on `User`, and `MerchantMembership` has no single `roleId`: those designs would violate merchant context or the multiple-role requirement. No `isOwner`, `isAdmin`, `isManager`, or similar authorization boolean exists.
 
-B1.3 seeds neither default Roles nor a Permission catalog. Owner, Manager, and other role bootstrap behavior requires a later reviewed design, as does the stable capability catalog. B1.8 resolves and evaluates exact effective Permission keys, but requirement decorators, enforcement guards, business-route policy, and administration remain deferred.
+B1.3 seeds neither default Roles nor a Permission catalog. Owner, Manager, and other role bootstrap behavior requires a later reviewed design, as does the stable capability catalog. B1.9 provides single-Permission route declaration and enforcement, but real business-route policy, multi-Permission metadata, default authorization configuration, and administration remain deferred.

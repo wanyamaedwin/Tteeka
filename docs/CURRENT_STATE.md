@@ -1,6 +1,6 @@
 # Current State
 
-## B1.8: Merchant context and permission evaluation
+## B1.9: Declarative permission authorization guard
 
 The repository contains a backend-only npm workspace monorepo targeting Node.js 24 LTS.
 
@@ -195,6 +195,26 @@ B1.8 adds merchant-scoped authorization resolution without a schema migration:
 
 See [MERCHANT_CONTEXT.md](MERCHANT_CONTEXT.md) for the complete behavior and deferred-enforcement boundary.
 
+B1.9 adds declarative exact-Permission enforcement without a schema migration or production route:
+
+- `@RequirePermission(permissionKey)` with one centralized metadata key
+- exact preservation of non-empty developer-supplied Permission keys
+- class-level and method-level requirements with method-over-class precedence
+- route-scoped `PermissionGuard` registered through `AuthorizationModule`
+- enforcement against the existing request-local `ResolvedMerchantContext`
+- exclusive delegation to the existing `PermissionEvaluator`
+- generic HTTP 403 denial when the exact required Permission is absent
+- generic 500-class failure for missing metadata or missing Merchant context
+- the required `SessionAuthGuard -> MerchantContextGuard -> PermissionGuard` composition
+- no second authorization query and no mutation of authentication or Merchant context
+- real PostgreSQL/HTTP proof through a test-only controller absent from production modules
+- immediate Role, Permission, Membership, and Merchant lifecycle effects without re-login
+- cross-Merchant and other-User isolation with no Session mutation
+- continued B1.8 context-endpoint access for ACTIVE zero-Role Memberships
+- no global guard, Permission cache, wildcard, deny, or Role-name bypass semantics
+
+See [PERMISSION_ENFORCEMENT.md](PERMISSION_ENFORCEMENT.md) for the future merchant-route usage and failure contract. The B1 authentication and authorization foundation is complete after B1.9.
+
 The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage therefore does not kill the process: liveness remains independent, while the existing direct `pg` readiness probe reports the outage. The worker constructs the same shared infrastructure but performs no database query, queue work, or business processing.
 
 ## Explicitly not implemented
@@ -208,12 +228,16 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - Session renewal, rotation, sliding expiration, retention cleanup, or Redis Session storage
 - a global authentication guard or global public/private route metadata
 - Merchant context, Membership resolution, Role resolution, or Permission resolution during authentication itself
-- permission requirement decorators, permission guards, or business-route authorization enforcement
+- production business routes using declarative Permission enforcement
+- multi-Permission requirement metadata or any/all route composition
 - CSRF defense for future authenticated state-changing browser requests
 - password-reset tokens or password-reset workflow
 - email verification, phone verification, or OTP
 - default Permissions, default Roles, Permission seeding, or Role seeding
-- global authorization guards or authorization decorators
+- a global PermissionGuard, other global authorization guard, `APP_GUARD`, or `@Public` infrastructure
+- wildcard Permissions, deny rules, Permission inheritance, or hierarchical Roles
+- Owner/Admin bypass or Role-name authorization
+- authorization Session snapshots, Redis authorization cache, or other long-lived authorization cache
 - role-management or staff-management APIs
 - invitation workflow
 - rate limiting, brute-force protection, account lockout, failed-login counters, MFA, or passkeys
@@ -235,4 +259,4 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 
 Prisma remains exposed through infrastructure services and the narrow Auth store; there are no general identity repositories or business APIs. No seed users or merchants exist.
 
-These items belong to later reviewed steps and are outside B1.8.
+These items belong to later reviewed steps and are outside B1.9. B2.1 has not started.

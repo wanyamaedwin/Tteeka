@@ -44,6 +44,8 @@ type AuthenticatedPrincipal = {
 
 For `GET /api/v1/merchants/:merchantId/context`, successful authentication runs before Merchant resolution. `MerchantContextGuard` writes its result only to `request.merchantContext`; it never mutates `AuthenticatedPrincipal`. `@CurrentMerchantContext()` reads that separate context. This preserves global identity independently of the requested tenant and allows the same Session to resolve different Merchants on separate requests.
 
+Future Permission-protected merchant routes use the explicit route-scoped pipeline `SessionAuthGuard -> MerchantContextGuard -> PermissionGuard`. The first establishes `request.auth`, the second establishes current `request.merchantContext`, and the third enforces the route's single exact `@RequirePermission` key. None is global, and PermissionGuard performs no persistence lookup. See [PERMISSION_ENFORCEMENT.md](PERMISSION_ENFORCEMENT.md).
+
 `GET /api/v1/auth/me` returns only:
 
 ```json
@@ -74,4 +76,4 @@ Touching changes only operational `lastUsedAt`. It never extends absolute `expir
 
 `GET /api/v1/auth/me` and `POST /api/v1/auth/logout-all` are explicitly guarded. Login and both health endpoints remain public. Current-session `POST /api/v1/auth/logout` is intentionally a special unguarded, idempotent route so missing, malformed, stale, expired, revoked, unknown, and DISABLED-User cookies can be cleared safely. Successful server revocation makes an old cookie fail future authenticated resolution. `SessionAuthGuard` is not an `APP_GUARD`, and no `@Public` mechanism is introduced.
 
-Authentication and authorization remain separate: neither logout operation resolves Merchant context, Membership, Role, or Permission. B1.8 resolves Merchant context only on its explicit route and adds no global guard or Permission enforcement. Session listing/management, global authentication, renewal, rotation, sliding expiration, Redis Session storage, rate limiting, and audit/outbox remain deferred. A reviewed CSRF policy is required before production authenticated business write endpoints are introduced. See [SESSION_REVOCATION.md](SESSION_REVOCATION.md) and [MERCHANT_CONTEXT.md](MERCHANT_CONTEXT.md).
+Authentication and authorization remain separate: neither logout operation resolves Merchant context, Membership, Role, or Permission. Merchant context and Permission enforcement remain explicit and route-scoped, with no global guard. Session listing/management, global authentication, renewal, rotation, sliding expiration, Redis Session storage, rate limiting, and audit/outbox remain deferred. A reviewed CSRF policy is required before production authenticated business write endpoints are introduced. See [SESSION_REVOCATION.md](SESSION_REVOCATION.md), [MERCHANT_CONTEXT.md](MERCHANT_CONTEXT.md), and [PERMISSION_ENFORCEMENT.md](PERMISSION_ENFORCEMENT.md).

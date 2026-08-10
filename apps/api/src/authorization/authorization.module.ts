@@ -6,6 +6,7 @@ import { MerchantContextController } from './merchant-context.controller';
 import { MerchantContextGuard } from './merchant-context.guard';
 import { MerchantContextService } from './merchant-context.service';
 import { PermissionEvaluator } from './permission-evaluator';
+import { PermissionGuard } from './permission.guard';
 import { PrismaAuthorizationStore } from './prisma-authorization.store';
 
 const authorizationStoreProvider: Provider = {
@@ -21,7 +22,13 @@ const authorizationStoreProvider: Provider = {
     MerchantContextService,
     MerchantContextGuard,
     PermissionEvaluator,
+    PermissionGuard,
   ],
-  exports: [PermissionEvaluator],
+  exports: [
+    MerchantContextService,
+    MerchantContextGuard,
+    PermissionEvaluator,
+    PermissionGuard,
+  ],
 })
 export class AuthorizationModule {}
