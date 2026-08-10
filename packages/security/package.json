@@ -2,7 +2,7 @@
   "name": "@tteeka/security",
   "version": "0.0.0",
   "private": true,
-  "description": "Shared password cryptography infrastructure",
+  "description": "Shared password and opaque-session cryptography infrastructure",
   "engines": {
     "node": ">=24 <25"
   },
@@ -10,7 +10,7 @@
   "types": "src/index.ts",
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
-    "test": "node --import tsx --test src/password-hasher.spec.ts",
+    "test": "node --import tsx --test src/password-hasher.spec.ts src/session-token.spec.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {

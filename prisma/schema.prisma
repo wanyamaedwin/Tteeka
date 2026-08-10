@@ -75,9 +75,27 @@ model User {
 
   memberships        MerchantMembership[]
   passwordCredential PasswordCredential?
+  sessions           Session[]
 
   @@index([status], map: "users_status_idx")
   @@map("users")
+}
+
+model Session {
+  id         String    @id(map: "sessions_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @unique(map: "sessions_token_hash_key") @map("token_hash") @db.Char(64)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastUsedAt DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
+  userAgent  String?   @map("user_agent") @db.VarChar(512)
+  ipAddress  String?   @map("ip_address") @db.VarChar(45)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "sessions_user_id_fkey")
+
+  @@index([userId, revokedAt, expiresAt], map: "sessions_user_id_revoked_at_expires_at_idx")
+  @@map("sessions")
 }
 
 model PasswordCredential {

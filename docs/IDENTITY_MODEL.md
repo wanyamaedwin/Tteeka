@@ -61,6 +61,8 @@ The database enforces `users_phone_e164_key` and `users_email_key`. PostgreSQL p
 
 The status index is `users_status_idx`.
 
+B1.4 adds a one-to-many relationship from User to Session. Sessions authenticate the global User and deliberately contain no Merchant authorization context. They are dependent security material; see [SESSION_MODEL.md](SESSION_MODEL.md).
+
 ## MerchantMembership
 
 `MerchantMembership` represents one User belonging to one Merchant.
@@ -94,4 +96,4 @@ Status changes do not delete related records. No hard-delete API exists.
 
 No Role is stored directly on User, and MerchantMembership has no single Role field. B1.3 models merchant-scoped Roles through explicit MembershipRole records, without pre-encoding owner, manager, sales, or other default roles.
 
-Passwords, password hashes, sessions, login, logout, verification, reset, and invitation workflows are also absent. Authentication is a separate checkpoint and must build on this identity foundation without weakening its tenancy or integrity rules.
+Password credentials and opaque Session persistence now exist as separate dependent security records. Login, logout, Session issuance, request authentication, verification, reset, and invitation workflows remain absent. Future authentication must build on this identity foundation without weakening its tenancy or integrity rules.

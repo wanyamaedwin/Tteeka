@@ -19,7 +19,7 @@ A User may have zero or one PasswordCredential. A PasswordCredential belongs to 
 | `createdAt`         | `created_at`          | `timestamptz(3)`, default current time               |
 | `updatedAt`         | `updated_at`          | `timestamptz(3)`, maintained by Prisma               |
 
-`passwordChangedAt` records when the currently stored credential was established or last changed. A future password-change service must update the hash and this timestamp together. Future session-security logic may use the timestamp, but B1.2 has no sessions or invalidation behavior.
+`passwordChangedAt` records when the currently stored credential was established or last changed. A future password-change service must update the hash and this timestamp together. Future session-security logic may use the timestamp. B1.4 provides Session persistence and token primitives, but password verification does not yet issue a Session and no invalidation behavior exists.
 
 PasswordCredential is dependent security material. Its foreign key uses `ON DELETE CASCADE`, so a legitimately deleted User cannot leave credential material orphaned. This is an explicit exception to the restrictive deletion policy for identity/history relationships. A User with a MerchantMembership still cannot be deleted because the B1.1 membership foreign key remains `ON DELETE RESTRICT`.
 
@@ -52,9 +52,9 @@ The hashing package deliberately contains no password-strength policy. Length ru
 
 The following directions are explicitly future work and are not implemented:
 
-- A login flow may locate a User, retrieve the credential, verify the candidate, and replace the hash after a successful verification when `passwordNeedsRehash` is true.
+- A login flow may locate a User, retrieve the credential, verify the candidate, replace the hash after a successful verification when `passwordNeedsRehash` is true, and then deliberately issue a Session. That flow is not implemented.
 - A password-change flow may verify the existing credential where appropriate, hash the replacement, and atomically update `passwordHash` and `passwordChangedAt`.
 - A password-reset flow requires separately designed reset tokens, expiry, abuse controls, delivery, and session consequences.
-- Registration, sessions, cookies, JWTs, refresh tokens, OTP, invitations, account lockout, rate limiting, roles, permissions, and authentication/authorization controllers remain absent.
+- Registration, Session issuance, cookies, JWTs, refresh tokens, OTP, invitations, account lockout, rate limiting, and authentication/authorization controllers remain absent. Session persistence and token primitives exist independently as of B1.4.
 
 Applications may depend on both `@tteeka/security` and `@tteeka/database`. `@tteeka/security` must not depend on the database package. `@tteeka/database` has no runtime security dependency; its integration tests use `@tteeka/security` only as a development dependency to prove that an encoded hash—not plaintext—crosses the persistence boundary.

@@ -18,6 +18,8 @@ Canonical phone values use E.164 representation and fit `varchar(16)`. Applicati
 
 Password credentials use the physical table `password_credentials` and snake_case columns. `password_hash` stores only the encoded Argon2 PHC string in `varchar(512)`. Plaintext passwords and separately duplicated salts or Argon2 parameters never belong in database columns.
 
+Opaque authentication tokens are high-entropy secrets rather than business identifiers and are never stored directly. Sessions store only deterministic SHA-256 token hashes in `char(64)`, enabling indexed lookup without password-style Argon2. `expires_at` and nullable `revoked_at` are lifecycle facts, not a duplicated status. PostgreSQL is authoritative Session storage; Redis is neither Session authority nor a B1.4 Session cache.
+
 Authorization uses explicit `membership_roles` and `role_permissions` join entities rather than implicit ORM many-to-many tables. Tenant-owned authorization links carry `merchant_id` where it is needed for ownership, lookup, and database-enforced tenant integrity. Composite foreign keys pair that tenant identifier with the related identifier so PostgreSQL rejects cross-merchant links. Supporting unique indexes such as `(merchant_id, id)` may exist specifically to make those tenant-aware references valid even when `id` remains the normal primary key.
 
 Global lookup entities are documented exceptions to merchant ownership. `Permission` is a global capability definition and therefore has no `merchant_id`; merchant context enters through Role and RolePermission. Dependent authorization joins may cascade when their owning Membership or Role is legitimately physically removed, while deletion of a referenced Permission is restricted. Lifecycle status remains preferred over destructive deletion.
@@ -54,6 +56,8 @@ Applied or shared domain migrations are immutable historical artifacts. Correct 
 
 `20260809213158_authorization_foundation` is the third domain migration. It adds only the B1.3 authorization schema and the supporting MerchantMembership composite unique index. Both earlier migrations remain immutable.
 
+`20260810081341_session_foundation` is the fourth domain migration. It adds only the B1.4 Session schema and User relation. All three historical domain migrations remain immutable.
+
 ## Query and model policy
 
 Prefer Prisma's typed query API for application work. Raw SQL requires a concrete need, parameter binding, review, and tests; the static `SELECT 1` smoke query is infrastructure-only and does not modify data.
@@ -63,5 +67,7 @@ Transaction boundaries will be expanded when business modules arrive. Migrations
 Core identity entities use lifecycle statuses rather than physical deletion. Foreign keys from memberships to merchants and users use `ON DELETE RESTRICT`; core identity history must not disappear through cascade deletion.
 
 Dependent security material may use cascade deletion only when explicitly justified. `PasswordCredential` uses `ON DELETE CASCADE` because credential material must not outlive a legitimately deleted User. This does not weaken the existing membership restriction that can prevent User deletion.
+
+`Session` is the same kind of explicit dependent-security-data exception: its User foreign key cascades because an orphaned Session must not survive legitimate User deletion. Expired or revoked Sessions otherwise remain until a future explicit retention policy removes them.
 
 Dependent authorization assignments use cascades only with their owning Membership or Role. Referenced global Permissions and Merchants that own Roles use restrictive deletion. Disabling a Membership or Role and deprecating a Permission preserve their authorization links.

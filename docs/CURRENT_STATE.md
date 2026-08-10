@@ -1,6 +1,6 @@
 # Current State
 
-## B1.3: Roles, permissions, and merchant-scoped authorization data model
+## B1.4: Opaque Session data model and secure token foundation
 
 The repository contains a backend-only npm workspace monorepo targeting Node.js 24 LTS.
 
@@ -105,15 +105,33 @@ B1.3 adds the merchant-scoped authorization persistence foundation:
 
 The model and tenant-boundary design are documented in [AUTHORIZATION_MODEL.md](AUTHORIZATION_MODEL.md). B1.3 contains no Role or Permission seed data and no authorization decision engine.
 
+B1.4 adds the opaque server-side Session foundation:
+
+- a User-owned Session model with a one-to-many User relationship
+- PostgreSQL UUIDv7 Session identifiers
+- unique hash-only token persistence in `token_hash char(64)`
+- 256-bit cryptographically random opaque token generation in `@tteeka/security`
+- unpadded base64url token encoding and deterministic SHA-256 hashing
+- explicit expiry, revocation, creation, and last-used lifecycle timestamps
+- optional minimized User-Agent and IP-address diagnostic metadata
+- a cascading dependent-security-data User foreign key while MerchantMembership restrictions remain effective
+- PostgreSQL as authoritative Session persistence with no Redis Session storage
+- the fourth domain migration: `20260810081341_session_foundation`
+- cryptographic unit tests and real PostgreSQL integration tests covering hash-only storage, lifecycle, relations, metadata, indexes, constraints, and cleanup
+
+The complete design boundary is documented in [SESSION_MODEL.md](SESSION_MODEL.md).
+
 The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage therefore does not kill the process: liveness remains independent, while the existing direct `pg` readiness probe reports the outage. The worker constructs the same shared infrastructure but performs no database query, queue work, or business processing.
 
 ## Explicitly not implemented
 
 - frontend applications or UI
-- login, logout, or request authentication
+- login, logout, logout-all, or request authentication
 - authentication controllers, services, or `AuthModule`
 - account registration or password-change APIs
-- sessions, cookies, JWTs, access tokens, or refresh tokens
+- Session issuance, listing, revocation APIs, middleware, authentication guards, or current-user endpoint
+- cookies or cookie issuance, JWTs, bearer/access tokens, or refresh tokens
+- Session renewal, rotation, sliding expiration, retention cleanup, or Redis Session storage
 - password-reset tokens or password-reset workflow
 - email verification, phone verification, or OTP
 - default Permissions, default Roles, Permission seeding, or Role seeding
@@ -129,7 +147,7 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - cash on delivery (COD)
 - delivery, riders, or returns
 - receipts
-- policies or audit domain functionality
+- authorization execution, policies, or audit domain functionality
 - outbox functionality
 - BullMQ, queues, workers, or background jobs
 - WhatsApp, MTN, or Airtel integrations
@@ -138,4 +156,4 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 
 Prisma remains exposed through infrastructure services; there are no identity repositories, business queries, services, controllers, or endpoints. No seed users or merchants exist.
 
-These items belong to later reviewed steps and are outside B1.3. B1.4 has not started.
+These items belong to later reviewed steps and are outside B1.4. B1.5 has not started.

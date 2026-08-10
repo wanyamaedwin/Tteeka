@@ -294,3 +294,81 @@
 - **Status:** Accepted
 - **Decision:** A Permission referenced by RolePermission cannot be physically deleted.
 - **Rationale:** Silent deletion would change authorization semantics; deprecation preserves both the capability identity and existing assignments.
+
+## ADR-050: Opaque server-side sessions
+
+- **Status:** Accepted
+- **Decision:** Tteeka uses opaque server-side Sessions rather than JWT as the initial staff web-session model.
+- **Rationale:** A meaningless client secret and authoritative server record allow explicit expiry and revocation without embedding identity or authorization claims in client-controlled state.
+
+## ADR-051: Sessions authenticate global User identity
+
+- **Status:** Accepted
+- **Decision:** Session belongs to User and does not encode Merchant authorization context.
+- **Rationale:** One User may operate in multiple Merchants; authorization remains derived through MerchantMembership, Role, and Permission relationships.
+
+## ADR-052: Session secrets contain 256 random bits
+
+- **Status:** Accepted
+- **Decision:** Node's cryptographic random source generates every Session secret from 32 random bytes.
+- **Rationale:** Machine-generated 256-bit secrets provide sufficient unpredictability without using UUIDs, timestamps, counters, or identity data as authentication secrets.
+
+## ADR-053: Session tokens are pure unpadded base64url
+
+- **Status:** Accepted
+- **Decision:** Raw Session tokens are opaque base64url values containing no prefix or business data.
+- **Rationale:** URL-safe encoding transports random bytes without turning the secret into a descriptive or decodable application payload.
+
+## ADR-054: Only SHA-256 Session token hashes are persisted
+
+- **Status:** Accepted
+- **Decision:** PostgreSQL stores the lowercase hexadecimal SHA-256 digest and never the raw Session token.
+- **Rationale:** Database disclosure should not directly expose the bearer secret, while future requests can hash incoming tokens for indexed lookup.
+
+## ADR-055: Session token hashing is deterministic and unsalted
+
+- **Status:** Accepted
+- **Decision:** Session tokens use deterministic unsalted SHA-256 rather than Argon2, bcrypt, a salt column, or a B1.4 pepper.
+- **Rationale:** Session secrets have 256 bits of machine-generated entropy, unlike human passwords, and deterministic hashing is required for efficient lookup by digest.
+
+## ADR-056: Session token hashes are globally unique
+
+- **Status:** Accepted
+- **Decision:** `sessions.token_hash` has a globally unique database constraint.
+- **Rationale:** One digest must resolve to at most one Session, and the unique index is the future authentication lookup path.
+
+## ADR-057: PostgreSQL is Session authority
+
+- **Status:** Accepted
+- **Decision:** PostgreSQL is authoritative for Session existence and lifecycle; Redis is not Session authority in B1.4.
+- **Rationale:** Durable expiry and revocation facts retain a single source of truth before any caching policy is designed.
+
+## ADR-058: Explicit Session lifecycle facts
+
+- **Status:** Accepted
+- **Decision:** Required `expiresAt` and nullable `revokedAt` represent Session lifecycle instead of a `SessionStatus` enum.
+- **Rationale:** Active, expired, and revoked state can be derived without redundant state that could disagree with timestamps.
+
+## ADR-059: Session history is retained
+
+- **Status:** Accepted
+- **Decision:** Expired and revoked Sessions remain until a future explicit retention policy removes them.
+- **Rationale:** Immediate deletion would discard useful security/session history before privacy, operations, and audit retention requirements are designed.
+
+## ADR-060: Sessions cascade on legitimate User deletion
+
+- **Status:** Accepted
+- **Decision:** Session to User uses `ON DELETE CASCADE` and `ON UPDATE CASCADE`.
+- **Rationale:** Sessions are dependent security material and must not become orphaned; MerchantMembership continues to restrict deletion of referenced Users.
+
+## ADR-061: User-Agent and IP are optional metadata
+
+- **Status:** Accepted
+- **Decision:** User-Agent and IP address are optional minimized diagnostic metadata and never authentication factors.
+- **Rationale:** The values may support future security/session management but must not create device fingerprinting, IP pinning, or unnecessary privacy exposure.
+
+## ADR-062: Session lifetime policy is deferred
+
+- **Status:** Accepted
+- **Decision:** B1.4 gives `expiresAt` no database default and defines no Session TTL, renewal, or sliding-expiry policy.
+- **Rationale:** A future issuance checkpoint must deliberately select and review lifetime policy rather than hiding it in persistence defaults.
