@@ -21,6 +21,7 @@
     "infra:status": "docker compose ps",
     "infra:up": "docker compose up -d --wait",
     "lint": "eslint .",
+    "permissions:sync": "node --env-file-if-exists=.env --import tsx apps/api/src/access-management/permission-sync.cli.ts",
     "prebuild": "npm run prisma:generate",
     "predb:check": "npm run prisma:generate",
     "pretest": "npm run prisma:generate && npm run build --workspace @tteeka/config && npm run build --workspace @tteeka/security && npm run build --workspace @tteeka/database",

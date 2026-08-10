@@ -10,7 +10,7 @@ GET /api/v1/merchants/:merchantId/context
 
 The route runs `SessionAuthGuard` first and `MerchantContextGuard` second. Authentication establishes the global User at `request.auth`; authorization then resolves the requested Merchant at `request.merchantContext`. Neither guard is global, and merchant context is never stored in or inferred from the Session.
 
-B1.8 exposes context and a pure permission evaluator. B1.9 adds a separate declarative PermissionGuard. B2.1 consumes both for real Merchant profile/settings operations, while the context-inspection endpoint remains ungated by a specific business Permission. No authorization data is seeded and no role-management API exists.
+B1.8 exposes context and a pure permission evaluator. B1.9 adds a separate declarative PermissionGuard. B2.1 consumes both for Merchant profile/settings operations. B2.2 adds separate staff and Role administration APIs plus an explicit Permission catalog sync; the context-inspection endpoint remains ungated by a specific business Permission.
 
 ## Request contract
 
@@ -95,11 +95,14 @@ Merchant context resolution is not itself specific Permission enforcement. On B2
 
 The context endpoint deliberately retains B1.8 semantics: an ACTIVE Membership with zero Roles receives HTTP 200 with empty Roles and Permissions. See [PERMISSION_ENFORCEMENT.md](PERMISSION_ENFORCEMENT.md).
 
+## B2.2 administration effects
+
+B2.2 changes the same PostgreSQL Membership, Role, and Permission links consumed by context resolution. Membership disable/reactivation, MembershipRole replacement, Role disable/reactivation, and RolePermission replacement therefore affect the next request without re-login. No change is copied into or invalidated through the global Session, and Redis remains outside authorization. Administrative persistence is tenant-scoped by the resolved `request.merchantContext.merchant.id`; target Membership and Role identifiers are additionally checked against that Merchant.
+
 ## Deferred work
 
 - additional business endpoints protected by Permissions
-- default Roles, default Permissions, and catalog seeding
-- Role, Permission, MembershipRole, or staff-management APIs
+- default Roles or invitation/account onboarding
 - authorization caching and invalidation infrastructure
 - deny rules, wildcard rules, hierarchical Roles, or Role-name authority
 - audit events, outbox integration, and authorization administration

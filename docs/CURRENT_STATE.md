@@ -1,6 +1,6 @@
 # Current State
 
-## B2.1: Merchant profile and core operational settings
+## B2.2: Staff, Membership, and Role administration
 
 The repository contains a backend-only npm workspace monorepo targeting Node.js 24 LTS.
 
@@ -234,6 +234,23 @@ B2.1 adds the first real Merchant business module without a schema migration:
 
 See [MERCHANT_PROFILE_SETTINGS.md](MERCHANT_PROFILE_SETTINGS.md) for the complete API, validation, ownership, and deferred-domain boundary.
 
+B2.2 adds tenant-safe authorization administration without a schema migration:
+
+- a separate `AccessManagementModule` for staff, Membership, Role, and grant administration
+- Merchant staff listing and existing-ACTIVE-User Membership creation
+- ACTIVE/DISABLED Membership lifecycle with retained Role links
+- transactional exact MembershipRole replacement
+- Merchant Role listing, creation, editing, disabling, and reactivation
+- transactional exact RolePermission replacement
+- four exact administration Permissions with no manage-implies-read behavior
+- an eight-key code-owned application Permission catalog
+- explicit, idempotent `npm run permissions:sync` with no startup seeding or default Roles
+- unknown/disabled-User enumeration safety and safe uniqueness-conflict handling
+- tenant-safe target resolution and immediate PostgreSQL-authoritative authorization changes without Session revocation
+- bounded no-store responses and real HTTP/PostgreSQL coverage
+
+See [STAFF_ROLE_ADMINISTRATION.md](STAFF_ROLE_ADMINISTRATION.md) for API contracts, lifecycle rules, exact replacement behavior, synchronization, and deferred onboarding/audit boundaries.
+
 The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage therefore does not kill the process: liveness remains independent, while the existing direct `pg` readiness probe reports the outage. The worker constructs the same shared infrastructure but performs no database query, queue work, or business processing.
 
 ## Explicitly not implemented
@@ -247,36 +264,36 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - Session renewal, rotation, sliding expiration, retention cleanup, or Redis Session storage
 - a global authentication guard or global public/private route metadata
 - Merchant context, Membership resolution, Role resolution, or Permission resolution during authentication itself
-- additional business routes beyond Merchant profile/core settings
+- additional business routes beyond Merchant profile/core settings and access management
 - multi-Permission requirement metadata or any/all route composition
 - CSRF defense for future authenticated state-changing browser requests
 - password-reset tokens or password-reset workflow
 - email verification, phone verification, or OTP
-- default Permissions, default Roles, Permission seeding, or Role seeding
+- default Owner/Admin/Manager Roles or automatic startup Permission synchronization
 - a global PermissionGuard, other global authorization guard, `APP_GUARD`, or `@Public` infrastructure
 - wildcard Permissions, deny rules, Permission inheritance, or hierarchical Roles
 - Owner/Admin bypass or Role-name authorization
 - authorization Session snapshots, Redis authorization cache, or other long-lived authorization cache
-- role-management or staff-management APIs
-- invitation workflow
+- signup, invitation, or staff account-onboarding workflow
+- User profile/status administration
+- Permission CRUD APIs
 - rate limiting, brute-force protection, account lockout, failed-login counters, MFA, or passkeys
 - email login
 - Merchant creation, deletion, or status-management APIs
 - User or staff administration APIs
-- default Permission or Role bootstrap and administration
-- customers or catalogue
-- products or inventory
+- Role hierarchy, inheritance, wildcard, deny, or Owner/Admin bypass semantics
+- products, catalogue, inventory, or customers
 - orders or payments
 - cash on delivery (COD) settings or behavior
 - stock-hold settings or behavior
 - delivery settings, riders, or returns settings
 - receipts
-- authorization administration, business policies, or audit domain functionality
+- access-management audit history or business-policy domain functionality
 - outbox functionality
 - BullMQ, queues, workers, or background jobs
 - WhatsApp, MTN, or Airtel integrations
 - Swagger or OpenAPI
 
-Prisma remains exposed through infrastructure services and narrow Auth, Authorization, and Merchant stores; there are no general repositories. No seed users, Merchants, Roles, or Permissions exist.
+Prisma remains exposed through infrastructure services and narrow Auth, Authorization, Merchant, and AccessManagement stores; there are no general repositories. No seed Users, Merchants, or Roles exist. Permission synchronization is an explicit operational command only.
 
-These items belong to later reviewed steps and are outside B2.1. B2.2 has not started.
+These items belong to later reviewed steps and are outside B2.2. B3.1 has not started.

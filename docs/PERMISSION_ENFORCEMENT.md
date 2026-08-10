@@ -4,7 +4,7 @@
 
 B1.9 completes Tteeka's B1 authentication and authorization foundation by adding declarative, exact-Permission enforcement. B2.1 is its first production consumer through Merchant profile and core-settings routes.
 
-Default Permissions, default Roles, authorization administration, broader commerce APIs, and authorization auditing remain deferred.
+B2.2 adds administration protected by four exact keys: `merchant.staff.read`, `merchant.staff.manage`, `merchant.roles.read`, and `merchant.roles.manage`. It still creates no default Roles, bypass semantics, or authorization audit domain.
 
 ## First production consumer
 
@@ -18,6 +18,8 @@ B2.1 declares its centralized constants rather than duplicating literals:
 ```
 
 Each route still requires its exact key. A manage Permission does not imply read, and no Owner/Admin label bypasses the guard. See [MERCHANT_PROFILE_SETTINGS.md](MERCHANT_PROFILE_SETTINGS.md).
+
+B2.2 applies the same rule to staff, Role, Role-assignment, Role-Permission, and catalog routes. Replacing a Membership's Roles requires `merchant.roles.manage`; `merchant.staff.manage` is insufficient. Role administration is itself authorization configuration protected by exact Permissions. See [STAFF_ROLE_ADMINISTRATION.md](STAFF_ROLE_ADMINISTRATION.md).
 
 ## Required guard pipeline
 
@@ -87,8 +89,7 @@ The existing Merchant-context endpoint remains an inspection endpoint rather tha
 
 - multi-Permission route metadata and any/all composition
 - a global secure-by-default guard policy
-- a stable default Permission catalog and default Roles
-- Role, Permission, Membership, and staff-management APIs
+- default Roles or implicit ownership semantics
 - additional commerce modules and their real Permission requirements
 - authorization audit events and outbox integration
 - wildcard, deny, hierarchy, inheritance, or Role-name authority

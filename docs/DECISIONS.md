@@ -1014,3 +1014,153 @@
 - **Status:** Accepted
 - **Decision:** B2.1 introduces no fake audit log or outbox; mutable Merchant changes will integrate with the planned B14 foundation.
 - **Rationale:** Durable audit semantics require the shared transactional audit/outbox architecture.
+
+## ADR-170: Access administration is separate from runtime authorization
+
+- **Status:** Accepted
+- **Decision:** `AccessManagementModule` administers authorization records while `AuthorizationModule` only resolves and enforces them.
+- **Rationale:** Dependency direction stays explicit and avoids circular policy ownership.
+
+## ADR-171: Staff addition targets an existing ACTIVE global User
+
+- **Status:** Accepted
+- **Decision:** B2.2 creates only a MerchantMembership for an existing ACTIVE User.
+- **Rationale:** Invitations, signup, credentials, and account onboarding require a separate design.
+
+## ADR-172: Staff lookup failure is enumeration safe
+
+- **Status:** Accepted
+- **Decision:** Unknown and globally DISABLED User phones return the same generic 422 response.
+- **Rationale:** Merchant administrators must not gain a global account-discovery oracle.
+
+## ADR-173: Membership creation assigns no default Role
+
+- **Status:** Accepted
+- **Decision:** A new Membership is ACTIVE with zero Role links.
+- **Rationale:** Tteeka has no reviewed ownership or default-Role model.
+
+## ADR-174: Membership disablement retains Role assignments
+
+- **Status:** Accepted
+- **Decision:** Disabling a Membership preserves MembershipRole rows.
+- **Rationale:** Lifecycle state, not destructive graph rewriting, controls participation.
+
+## ADR-175: Membership reactivation restores retained links
+
+- **Status:** Accepted
+- **Decision:** Reactivation makes retained active Role grants effective again.
+- **Rationale:** The lifecycle transition is reversible and predictable.
+
+## ADR-176: Membership Role assignment is exact replacement
+
+- **Status:** Accepted
+- **Decision:** PUT atomically replaces the complete desired MembershipRole set.
+- **Rationale:** Exact state is idempotent and avoids ambiguous incremental mutations.
+
+## ADR-177: Only ACTIVE Roles are newly assignable
+
+- **Status:** Accepted
+- **Decision:** Missing, foreign, or DISABLED Roles reject the whole replacement.
+- **Rationale:** New configuration cannot depend on unavailable authority.
+
+## ADR-178: Roles use reversible lifecycle rather than hard deletion
+
+- **Status:** Accepted
+- **Decision:** B2.2 exposes ACTIVE/DISABLED transitions and no Role DELETE route.
+- **Rationale:** Configuration identity and historical links remain addressable.
+
+## ADR-179: Role disablement retains all grant links
+
+- **Status:** Accepted
+- **Decision:** MembershipRole and RolePermission rows survive Role disablement.
+- **Rationale:** Reactivation restores configuration without reconstruction.
+
+## ADR-180: Role Permission assignment is exact replacement
+
+- **Status:** Accepted
+- **Decision:** PUT atomically replaces a Role's complete Permission set.
+- **Rationale:** Transactional desired-state semantics prevent partial grants.
+
+## ADR-181: Only ACTIVE application-catalog Permissions are assignable
+
+- **Status:** Accepted
+- **Decision:** New grants require a code-owned key and an ACTIVE matching database record.
+- **Rationale:** Arbitrary or deliberately unavailable authority cannot enter Role configuration.
+
+## ADR-182: DEPRECATED Permissions retain historical links
+
+- **Status:** Accepted
+- **Decision:** Deprecation makes grants ineffective and unassignable without deleting RolePermission history.
+- **Rationale:** Lifecycle changes remain observable and reversible.
+
+## ADR-183: The application Permission catalog is code owned
+
+- **Status:** Accepted
+- **Decision:** B2.2 composes eight implemented keys and descriptions from canonical constants.
+- **Rationale:** Deployable capabilities, not arbitrary API input, define assignable authority.
+
+## ADR-184: Permission synchronization is explicit and idempotent
+
+- **Status:** Accepted
+- **Decision:** `npm run permissions:sync` is operational and never an API startup side effect.
+- **Rationale:** Database mutation remains deliberate, observable, and repeatable.
+
+## ADR-185: Sync creates missing catalog Permissions as ACTIVE
+
+- **Status:** Accepted
+- **Decision:** Missing catalog records are created with canonical descriptions and ACTIVE status.
+- **Rationale:** Deployment can deterministically materialize implemented capabilities.
+
+## ADR-186: Sync never reactivates DEPRECATED Permissions
+
+- **Status:** Accepted
+- **Decision:** Existing DEPRECATED lifecycle state is preserved.
+- **Rationale:** Deployment must not reverse a deliberate security decision.
+
+## ADR-187: Sync leaves unknown database Permissions untouched
+
+- **Status:** Accepted
+- **Decision:** Unknown records are not deleted, renamed, or deprecated automatically.
+- **Rationale:** Conservative synchronization avoids destructive assumptions.
+
+## ADR-188: Permission sync creates no default Roles
+
+- **Status:** Accepted
+- **Decision:** Synchronization mutates Permission catalog records only.
+- **Rationale:** Merchant-local Role design remains explicit administration.
+
+## ADR-189: Role assignment requires merchant.roles.manage
+
+- **Status:** Accepted
+- **Decision:** Replacing Membership Roles requires Role-management rather than staff-management authority.
+- **Rationale:** Role assignment changes effective authorization configuration.
+
+## ADR-190: Manage does not imply read
+
+- **Status:** Accepted
+- **Decision:** Staff and Role manage Permissions do not imply corresponding read Permissions.
+- **Rationale:** B1.9 exact-grant semantics remain authoritative.
+
+## ADR-191: Authorization changes do not revoke Sessions
+
+- **Status:** Accepted
+- **Decision:** Membership, Role, and grant mutations leave the global Session intact.
+- **Rationale:** Fresh PostgreSQL context applies changes without conflating authentication and authorization.
+
+## ADR-192: PostgreSQL remains current authorization authority
+
+- **Status:** Accepted
+- **Decision:** B2.2 adds no Redis, Session, or process authorization snapshot.
+- **Rationale:** Each request observes current persisted lifecycle and link state.
+
+## ADR-193: No ownership, Role-name, or self-protection semantics exist
+
+- **Status:** Accepted
+- **Decision:** A capable caller may mutate any tenant-scoped Membership, including their own, with no Owner/Admin/last-admin bypass or block.
+- **Rationale:** Such continuity rules require an explicit ownership model.
+
+## ADR-194: Access-management changes are not yet audit logged
+
+- **Status:** Accepted
+- **Decision:** B2.2 introduces no partial AuditLog or outbox implementation.
+- **Rationale:** Immutable authorization history belongs to the planned shared audit/outbox stage.
