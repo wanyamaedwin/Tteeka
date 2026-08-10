@@ -5,6 +5,7 @@ import { AuthController } from './auth.controller';
 import { AuthService, DUMMY_PASSWORD_HASH } from './auth.service';
 import { AUTH_STORE } from './auth.store';
 import { PrismaAuthStore } from './prisma-auth.store';
+import { SessionAuthGuard } from './session-auth.guard';
 
 const authStoreProvider: Provider = {
   provide: AUTH_STORE,
@@ -18,6 +19,11 @@ const dummyPasswordHashProvider: Provider = {
 
 @Module({
   controllers: [AuthController],
-  providers: [authStoreProvider, dummyPasswordHashProvider, AuthService],
+  providers: [
+    authStoreProvider,
+    dummyPasswordHashProvider,
+    AuthService,
+    SessionAuthGuard,
+  ],
 })
 export class AuthModule {}

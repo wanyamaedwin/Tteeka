@@ -474,3 +474,99 @@
 - **Status:** Accepted
 - **Decision:** B1.5 does not implement rate limiting, brute-force controls, or account lockout.
 - **Rationale:** These controls require separately reviewed policy and infrastructure, but production hardening is incomplete without them.
+
+## ADR-080: Opaque cookies resolve against PostgreSQL Session state
+
+- **Status:** Accepted
+- **Decision:** Authenticated HTTP requests resolve `tteeka_session` against PostgreSQL Session state.
+- **Rationale:** The cookie is only a bearer secret; durable server-side lifecycle facts remain authoritative.
+
+## ADR-081: Validate raw token structure before lookup
+
+- **Status:** Accepted
+- **Decision:** Incoming values must match the 43-character, unpadded base64url, 32-byte B1.4 format before hashing or persistence access.
+- **Rationale:** Early bounded validation rejects malformed attacker input without unnecessary database work.
+
+## ADR-082: Session token hashing remains in @tteeka/security
+
+- **Status:** Accepted
+- **Decision:** API authentication uses `hashSessionToken()` and does not implement SHA-256 independently.
+- **Rationale:** One cryptographic boundary prevents algorithm drift between issuance and resolution.
+
+## ADR-083: Session and User lifecycle jointly determine validity
+
+- **Status:** Accepted
+- **Decision:** A usable Session must exist, be unrevoked, expire strictly after server time, and belong to an ACTIVE User.
+- **Rationale:** Authentication must honor both Session lifecycle and global identity lifecycle.
+
+## ADR-084: Authentication failures are publicly generic
+
+- **Status:** Accepted
+- **Decision:** Missing, malformed, unknown, revoked, expired, and DISABLED-User cases return the same HTTP 401 `Unauthorized.` response.
+- **Rationale:** Public distinctions would disclose internal Session or account state.
+
+## ADR-085: Infrastructure failures are not authentication failures
+
+- **Status:** Accepted
+- **Decision:** Unexpected Session-lookup failures propagate through 500-class handling instead of becoming 401.
+- **Rationale:** An unavailable authority cannot truthfully determine that credentials are invalid.
+
+## ADR-086: Request context uses a safe explicit principal
+
+- **Status:** Accepted
+- **Decision:** Successful resolution attaches only safe User identity and minimal Session context to `request.auth`.
+- **Rationale:** Controllers should not receive persistence entities, bearer secrets, contact details, or authorization graphs.
+
+## ADR-087: Authentication excludes authorization relationships
+
+- **Status:** Accepted
+- **Decision:** Session authentication does not resolve MerchantMembership, Merchant, Role, or Permission.
+- **Rationale:** Global User authentication and merchant-scoped authorization are distinct decisions.
+
+## ADR-088: SessionAuthGuard is route-scoped in B1.6
+
+- **Status:** Accepted
+- **Decision:** Only explicitly protected routes, initially `/api/v1/auth/me`, use `SessionAuthGuard`; it is not an `APP_GUARD`.
+- **Rationale:** Login and health must remain public while the authenticated surface is small.
+
+## ADR-089: Session expiration remains absolute
+
+- **Status:** Accepted
+- **Decision:** Authenticated requests never extend `expiresAt`.
+- **Rationale:** Request activity must not silently create sliding expiration.
+
+## ADR-090: Authenticated requests do not rotate tokens
+
+- **Status:** Accepted
+- **Decision:** B1.6 request resolution neither generates a token nor emits `Set-Cookie`.
+- **Rationale:** Rotation and renewal require separate lifecycle and concurrency policy.
+
+## ADR-091: lastUsedAt writes are interval-bounded
+
+- **Status:** Accepted
+- **Decision:** A Session is touched only when its prior `lastUsedAt` is at least one configured interval old, using a conditional update.
+- **Rationale:** This records useful activity while limiting repeated and concurrent writes.
+
+## ADR-092: The initial touch interval defaults to five minutes
+
+- **Status:** Accepted
+- **Decision:** `SESSION_TOUCH_INTERVAL_SECONDS` defaults to 300 and accepts integers from 60 through 3600.
+- **Rationale:** Five minutes balances operational recency against write amplification while remaining configurable.
+
+## ADR-093: lastUsedAt is secondary operational metadata
+
+- **Status:** Accepted
+- **Decision:** Session validity comes from the authoritative lookup; a subsequent touch failure is logged generically and does not invalidate the principal.
+- **Rationale:** Metadata-write availability should not misrepresent a valid Session as unauthorized.
+
+## ADR-094: Cookie parsing is standard and unsigned
+
+- **Status:** Accepted
+- **Decision:** The Express adapter uses `cookie-parser` without a signing secret.
+- **Rationale:** Standard parsing avoids ad-hoc header logic, while the opaque token and PostgreSQL state already provide authority.
+
+## ADR-095: CSRF protection is deferred but required
+
+- **Status:** Accepted
+- **Decision:** B1.6 introduces no CSRF mechanism, and one must be designed before production authenticated state-changing browser endpoints.
+- **Rationale:** `/me` is read-only, but cookie-authenticated write APIs require an explicit reviewed cross-site request policy.

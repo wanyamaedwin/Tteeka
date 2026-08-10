@@ -2,7 +2,7 @@
 
 ## Purpose and endpoint
 
-B1.5 introduces Tteeka's first authentication command: `POST /api/v1/auth/login`. It accepts only a JSON `phone` and `password`, validates both with Zod, authenticates the global User, creates a fresh opaque Session, and returns HTTP 200 with safe User and expiry information. It is not yet a complete production authentication system: request resolution, logout, rate limiting, and authorization remain deferred.
+B1.5 introduced Tteeka's first authentication command: `POST /api/v1/auth/login`. It accepts only a JSON `phone` and `password`, validates both with Zod, authenticates the global User, creates a fresh opaque Session, and returns HTTP 200 with safe User and expiry information. B1.6 can now resolve that cookie on explicitly protected routes, starting with `GET /api/v1/auth/me`; logout, rate limiting, and authorization remain deferred.
 
 ## Phone identity and validation
 
@@ -16,7 +16,7 @@ The Auth service asks its narrow persistence store only for User ID, display nam
 
 Unknown phone, missing PasswordCredential, incorrect password, and DISABLED User all return HTTP 401 with `Invalid phone number or password.` and the same public response shape. Missing-user and missing-credential paths perform one Argon2 verification against a synthetic dummy hash generated once at module startup and reused only in memory. This reduces an obvious computational timing difference without promising nanosecond equality.
 
-Only an ACTIVE User may receive a new Session. MerchantMembership is deliberately not required: login authenticates the global User, while Merchant selection and authorization belong to later authenticated-request processing. A User with zero Memberships can log in successfully.
+Only an ACTIVE User may receive a new Session. MerchantMembership is deliberately not required: login and B1.6 request resolution authenticate the global User, while Merchant selection and authorization belong to later work. A User with zero Memberships can log in and call `/me` successfully.
 
 ## Password parameter upgrades
 
@@ -45,4 +45,4 @@ The framework-resolved client IP is stored only when it fits 45 characters. `X-F
 
 ## Explicitly deferred
 
-B1.5 does not implement authenticated Session lookup, request middleware, `/me`, authentication or authorization guards, logout, logout-all, Session listing/revocation, renewal, rotation, sliding expiry, registration, invitations, email login, password reset/change APIs, OTP, MFA, passkeys, rate limiting, brute-force protection, account lockout, audit/outbox, Redis Session storage, or Merchant/Role/Permission resolution. Rate limiting and other abuse controls are required before production hardening.
+B1.6 adds route-scoped authenticated Session lookup and `/me` without changing login issuance. It does not implement logout, logout-all, Session listing/revocation, global authentication, authorization guards, renewal, rotation, sliding expiry, registration, invitations, email login, password reset/change APIs, OTP, MFA, passkeys, rate limiting, brute-force protection, account lockout, audit/outbox, Redis Session storage, or Merchant/Role/Permission resolution. See [AUTHENTICATED_REQUESTS.md](AUTHENTICATED_REQUESTS.md).

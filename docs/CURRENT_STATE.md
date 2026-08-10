@@ -1,6 +1,6 @@
 # Current State
 
-## B1.5: Login and Session issuance
+## B1.6: Authenticated request resolution
 
 The repository contains a backend-only npm workspace monorepo targeting Node.js 24 LTS.
 
@@ -141,16 +141,38 @@ B1.5 adds the first authentication command:
 
 See [LOGIN_FLOW.md](LOGIN_FLOW.md) for the full command and security boundary.
 
+B1.6 adds authenticated request resolution without a schema migration:
+
+- standard unsigned Express cookie parsing for `tteeka_session`
+- strict 43-character/32-byte base64url Session-token validation before hashing or persistence access
+- centralized SHA-256 lookup through `@tteeka/security`
+- narrow Auth-store Session lookup with no credentials or authorization relationships selected
+- rejection of missing, malformed, unknown, revoked, expired, exact-boundary, and DISABLED-User Sessions with one generic 401 response
+- propagation of genuine lookup infrastructure failures through 500-class error handling
+- an explicit safe `AuthenticatedPrincipal` attached at `request.auth`
+- route-scoped `SessionAuthGuard` protection for `GET /api/v1/auth/me`
+- a safe `/me` response containing only User ID/display name and absolute Session expiry
+- no-store/no-cache response headers and no cookie renewal
+- configurable `SESSION_TOUCH_INTERVAL_SECONDS`, defaulting to five minutes
+- concurrency-safe, best-effort conditional `lastUsedAt` touching that changes no other Session field
+- continued public access to login and health endpoints
+
+See [AUTHENTICATED_REQUESTS.md](AUTHENTICATED_REQUESTS.md) for the complete resolution and deferred-security boundary.
+
 The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage therefore does not kill the process: liveness remains independent, while the existing direct `pg` readiness probe reports the outage. The worker constructs the same shared infrastructure but performs no database query, queue work, or business processing.
 
 ## Explicitly not implemented
 
 - frontend applications or UI
-- logout, logout-all, or authenticated request resolution
+- logout or logout-all
 - account registration or password-change APIs
-- Session listing/revocation APIs, middleware, authentication guards, Session guards, or `/me`
+- Session listing, revocation, deletion, or management APIs
 - JWTs, bearer/access tokens, or refresh tokens
 - Session renewal, rotation, sliding expiration, retention cleanup, or Redis Session storage
+- a global authentication guard or global public/private route metadata
+- Merchant context, Membership resolution, Role resolution, or Permission resolution during authentication
+- authorization guards, permission guards, or authorization execution
+- CSRF defense for future authenticated state-changing browser requests
 - password-reset tokens or password-reset workflow
 - email verification, phone verification, or OTP
 - default Permissions, default Roles, Permission seeding, or Role seeding
@@ -176,4 +198,4 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 
 Prisma remains exposed through infrastructure services and the narrow Auth store; there are no general identity repositories or business APIs. No seed users or merchants exist.
 
-These items belong to later reviewed steps and are outside B1.5. B1.6 has not started.
+These items belong to later reviewed steps and are outside B1.6. B1.7 has not started.

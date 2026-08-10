@@ -8,6 +8,7 @@ export {
 export {
   createSessionToken,
   hashSessionToken,
+  isSessionTokenFormat,
   SESSION_TOKEN_BYTES,
   SESSION_TOKEN_LENGTH,
   type CreatedSessionToken,

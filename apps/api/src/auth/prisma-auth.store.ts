@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import type {
   AuthStore,
+  AuthenticationSession,
   CreateSessionInput,
   PasswordLoginUser,
 } from './auth.store';
@@ -41,5 +42,34 @@ export class PrismaAuthStore implements AuthStore {
 
   public async createSession(input: CreateSessionInput): Promise<void> {
     await this.database.client.session.create({ data: input });
+  }
+
+  public async findSessionForAuthentication(
+    tokenHash: string,
+  ): Promise<AuthenticationSession | null> {
+    return this.database.client.session.findUnique({
+      where: { tokenHash },
+      select: {
+        id: true,
+        userId: true,
+        expiresAt: true,
+        revokedAt: true,
+        lastUsedAt: true,
+        user: {
+          select: { id: true, displayName: true, status: true },
+        },
+      },
+    });
+  }
+
+  public async touchSessionLastUsedAt(
+    sessionId: string,
+    lastUsedAtThreshold: Date,
+    now: Date,
+  ): Promise<void> {
+    await this.database.client.session.updateMany({
+      where: { id: sessionId, lastUsedAt: { lte: lastUsedAtThreshold } },
+      data: { lastUsedAt: now },
+    });
   }
 }

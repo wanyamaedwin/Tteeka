@@ -28,6 +28,7 @@ function config(nodeEnv: AppConfig['nodeEnv']): AppConfig {
     redisUrl: 'redis://synthetic.invalid',
     infraHealthTimeoutMs: 2000,
     sessionTtlSeconds: 43_200,
+    sessionTouchIntervalSeconds: 300,
   };
 }
 
@@ -108,4 +109,27 @@ void test('rejects malformed bodies without invoking login', async () => {
     { status: 400 },
   );
   assert.equal(called, false);
+});
+
+void test('/me returns only the safe principal and sets private cache headers', () => {
+  const recorder = responseRecorder();
+  const controller = new AuthController(service(), config('test'));
+  const body = controller.me(
+    {
+      user: ISSUED_LOGIN.user,
+      session: {
+        id: '018f0000-0000-7000-8000-000000000099',
+        expiresAt: EXPIRES_AT,
+      },
+    },
+    recorder.response,
+  );
+  assert.deepEqual(body, {
+    user: ISSUED_LOGIN.user,
+    session: { expiresAt: EXPIRES_AT.toISOString() },
+  });
+  assert.equal(JSON.stringify(body).includes('000000000099'), false);
+  assert.equal(recorder.headers.get('Cache-Control'), 'no-store');
+  assert.equal(recorder.headers.get('Pragma'), 'no-cache');
+  assert.equal(recorder.cookies.length, 0);
 });

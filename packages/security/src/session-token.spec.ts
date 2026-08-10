@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   createSessionToken,
   hashSessionToken,
+  isSessionTokenFormat,
   SESSION_TOKEN_BYTES,
   SESSION_TOKEN_LENGTH,
 } from './session-token';
@@ -85,3 +86,26 @@ void test('generated tokens contain no supplied identity or authorization data',
   const { token } = createSessionToken();
   for (const value of forbiddenData) assert.equal(token.includes(value), false);
 });
+
+void test('freshly generated Session tokens have the accepted format', () => {
+  assert.equal(isSessionTokenFormat(createSessionToken().token), true);
+});
+
+void test('a 43-character base64url value decoding to 32 bytes is accepted', () => {
+  assert.equal(isSessionTokenFormat('A'.repeat(43)), true);
+});
+
+for (const [description, value] of [
+  ['empty', ''],
+  ['too short', 'A'.repeat(42)],
+  ['too long', 'A'.repeat(44)],
+  ['padded', `${'A'.repeat(42)}=`],
+  ['slash-containing', `${'A'.repeat(42)}/`],
+  ['plus-containing', `${'A'.repeat(42)}+`],
+  ['space-containing', `${'A'.repeat(42)} `],
+  ['Unicode-containing', `${'A'.repeat(42)}é`],
+] as const) {
+  void test(`${description} Session-token format is rejected`, () => {
+    assert.equal(isSessionTokenFormat(value), false);
+  });
+}

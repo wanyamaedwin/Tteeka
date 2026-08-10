@@ -14,6 +14,22 @@ export function hashSessionToken(token: string): string {
   return createHash('sha256').update(token, 'utf8').digest('hex');
 }
 
+export function isSessionTokenFormat(value: unknown): value is string {
+  if (
+    typeof value !== 'string' ||
+    value.length !== SESSION_TOKEN_LENGTH ||
+    !/^[A-Za-z0-9_-]+$/.test(value)
+  ) {
+    return false;
+  }
+
+  try {
+    return Buffer.from(value, 'base64url').byteLength === SESSION_TOKEN_BYTES;
+  } catch {
+    return false;
+  }
+}
+
 export function createSessionToken(): CreatedSessionToken {
   const token = randomBytes(SESSION_TOKEN_BYTES).toString('base64url');
 

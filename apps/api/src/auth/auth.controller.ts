@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   Headers,
   HttpCode,
   HttpStatus,
@@ -9,16 +10,20 @@ import {
   Ip,
   Post,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import type { AppConfig } from '@tteeka/config';
 
 import { APP_CONFIG } from '../configuration/configuration.module';
 import { AuthService } from './auth.service';
+import type { AuthenticatedPrincipal } from './authenticated-principal';
+import { CurrentAuth } from './current-auth.decorator';
 import { loginRequestSchema } from './login-request';
 import { normalizeUgandaPhone } from './uganda-phone';
+import { SESSION_COOKIE_NAME, SESSION_COOKIE_PATH } from './session-cookie';
+import { SessionAuthGuard } from './session-auth.guard';
 
-export const SESSION_COOKIE_NAME = 'tteeka_session';
-export const SESSION_COOKIE_PATH = '/api/v1';
+export { SESSION_COOKIE_NAME, SESSION_COOKIE_PATH } from './session-cookie';
 
 interface LoginHttpResponse {
   cookie(
@@ -32,6 +37,10 @@ interface LoginHttpResponse {
       readonly expires: Date;
     },
   ): void;
+  setHeader(name: string, value: string): void;
+}
+
+interface AuthenticatedHttpResponse {
   setHeader(name: string, value: string): void;
 }
 
@@ -89,6 +98,23 @@ export class AuthController {
     return {
       user: login.user,
       session: { expiresAt: login.session.expiresAt.toISOString() },
+    };
+  }
+
+  @Get('me')
+  @UseGuards(SessionAuthGuard)
+  public me(
+    @CurrentAuth() auth: AuthenticatedPrincipal,
+    @Res({ passthrough: true }) response: AuthenticatedHttpResponse,
+  ): {
+    user: { id: string; displayName: string };
+    session: { expiresAt: string };
+  } {
+    response.setHeader('Cache-Control', 'no-store');
+    response.setHeader('Pragma', 'no-cache');
+    return {
+      user: auth.user,
+      session: { expiresAt: auth.session.expiresAt.toISOString() },
     };
   }
 }

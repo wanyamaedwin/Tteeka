@@ -13,6 +13,7 @@ const CONFIG: AppConfig = Object.freeze({
   redisUrl: 'redis://127.0.0.1:6379',
   infraHealthTimeoutMs: 2000,
   sessionTtlSeconds: 43_200,
+  sessionTouchIntervalSeconds: 300,
 });
 
 void test('database service constructs from validated AppConfig', () => {

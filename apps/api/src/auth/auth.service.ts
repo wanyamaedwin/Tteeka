@@ -1,7 +1,13 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import type { AppConfig } from '@tteeka/config';
 import {
   createSessionToken,
+  hashSessionToken,
   hashPassword,
   passwordNeedsRehash,
   verifyPassword,
@@ -9,9 +15,11 @@ import {
 
 import { APP_CONFIG } from '../configuration/configuration.module';
 import { AUTH_STORE, type AuthStore } from './auth.store';
+import type { AuthenticatedPrincipal } from './authenticated-principal';
 
 export const DUMMY_PASSWORD_HASH = Symbol('DUMMY_PASSWORD_HASH');
 export const INVALID_CREDENTIALS_MESSAGE = 'Invalid phone number or password.';
+export const UNAUTHORIZED_MESSAGE = 'Unauthorized.';
 
 export interface LoginMetadata {
   readonly userAgent?: string;
@@ -26,6 +34,8 @@ export interface IssuedLogin {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   public constructor(
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     @Inject(AUTH_STORE) private readonly store: AuthStore,
@@ -76,6 +86,43 @@ export class AuthService {
       user: { id: user.id, displayName: user.displayName },
       session: { expiresAt },
       token,
+    };
+  }
+
+  public async authenticateSessionToken(
+    token: string,
+    now = new Date(),
+  ): Promise<AuthenticatedPrincipal> {
+    const session = await this.store.findSessionForAuthentication(
+      hashSessionToken(token),
+    );
+
+    if (session === null) {
+      throw new UnauthorizedException(UNAUTHORIZED_MESSAGE);
+    }
+
+    if (
+      session.revokedAt !== null ||
+      session.expiresAt.getTime() <= now.getTime() ||
+      session.user.status !== 'ACTIVE'
+    ) {
+      throw new UnauthorizedException(UNAUTHORIZED_MESSAGE);
+    }
+
+    const threshold = new Date(
+      now.getTime() - this.config.sessionTouchIntervalSeconds * 1000,
+    );
+    if (session.lastUsedAt.getTime() <= threshold.getTime()) {
+      try {
+        await this.store.touchSessionLastUsedAt(session.id, threshold, now);
+      } catch {
+        this.logger.warn('Unable to update Session last-used metadata.');
+      }
+    }
+
+    return {
+      user: { id: session.user.id, displayName: session.user.displayName },
+      session: { id: session.id, expiresAt: session.expiresAt },
     };
   }
 }

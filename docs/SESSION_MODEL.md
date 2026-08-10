@@ -24,7 +24,9 @@ A User may have many Sessions, and every Session belongs to exactly one User. Se
 | `userAgent`  | `user_agent`      | Optional diagnostic text, `varchar(512)`               |
 | `ipAddress`  | `ip_address`      | Optional IPv4/IPv6 text, `varchar(45)`                 |
 
-`expiresAt` is deliberately supplied by B1.5 login issuance using configurable `SESSION_TTL_SECONDS`, initially 12 hours. A non-null `revokedAt` is the revocation fact. `lastUsedAt` records the most recent successful future authenticated-request use, but no request lookup or automatic update exists yet. Explicit timestamps make lifecycle derivable, so there is no duplicated `SessionStatus` enum or generic `updatedAt`.
+`expiresAt` is deliberately supplied by B1.5 login issuance using configurable `SESSION_TTL_SECONDS`, initially 12 hours. A non-null `revokedAt` is the revocation fact. B1.6 now uses Session for authenticated-request resolution and conditionally advances `lastUsedAt` at a configurable interval (default five minutes). Explicit timestamps make lifecycle derivable, so there is no duplicated `SessionStatus` enum or generic `updatedAt`.
+
+Expiry remains absolute: request use and `lastUsedAt` updates never extend `expiresAt`. B1.6 performs no Session renewal, token rotation, or cookie renewal. Revoked and expired rows remain persisted.
 
 Expired and revoked rows remain stored as security/session history until a future explicit retention policy removes them. They are not automatically deleted.
 
@@ -48,4 +50,4 @@ User-Agent and IP address are optional security/diagnostic metadata only. They a
 
 PostgreSQL—not Redis—is Session authority. Redis Session storage and caching are absent so revocation and expiry facts have one durable source of truth.
 
-B1.5 implements password verification, Session issuance, and the `tteeka_session` HttpOnly cookie with SameSite=Lax, environment-derived Secure behavior, `/api/v1` path, and expiry matching the stored Session. Future reviewed checkpoints may implement authenticated request resolution, logout/revocation, logout-all, Session listing, rotation, renewal, retention cleanup, and privacy policy. JWTs, refresh tokens, bearer authentication, Session guards, and Redis Session authority remain absent. See [LOGIN_FLOW.md](LOGIN_FLOW.md).
+B1.5 implements password verification, Session issuance, and the `tteeka_session` HttpOnly cookie with SameSite=Lax, environment-derived Secure behavior, `/api/v1` path, and expiry matching the stored Session. B1.6 resolves that cookie through a route-scoped Session guard and PostgreSQL lookup for `/api/v1/auth/me`; see [AUTHENTICATED_REQUESTS.md](AUTHENTICATED_REQUESTS.md). Future reviewed checkpoints may implement logout/revocation, logout-all, Session listing, rotation, renewal, retention cleanup, and privacy policy. JWTs, refresh tokens, bearer authentication, and Redis Session authority remain absent.

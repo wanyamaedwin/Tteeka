@@ -37,6 +37,7 @@ void test('valid development configuration succeeds with defaults', () => {
   assert.equal(config.apiPort, 3000);
   assert.equal(config.infraHealthTimeoutMs, 2000);
   assert.equal(config.sessionTtlSeconds, 43_200);
+  assert.equal(config.sessionTouchIntervalSeconds, 300);
 });
 
 void test('accepts a custom Session TTL', () => {
@@ -59,6 +60,32 @@ for (const [description, value] of [
       { ...VALID_ENVIRONMENT, SESSION_TTL_SECONDS: value },
       'SESSION_TTL_SECONDS',
     );
+  });
+}
+
+for (const [description, value, accepted] of [
+  ['custom', '600', true],
+  ['below minimum', '59', false],
+  ['minimum', '60', true],
+  ['maximum', '3600', true],
+  ['above maximum', '3601', false],
+  ['zero', '0', false],
+  ['negative', '-1', false],
+  ['non-integer', '60.5', false],
+] as const) {
+  void test(`${accepted ? 'accepts' : 'rejects'} ${description} Session touch interval`, () => {
+    const environment = {
+      ...VALID_ENVIRONMENT,
+      SESSION_TOUCH_INTERVAL_SECONDS: value,
+    };
+    if (accepted) {
+      assert.equal(
+        loadConfig(environment).sessionTouchIntervalSeconds,
+        Number(value),
+      );
+    } else {
+      expectConfigurationError(environment, 'SESSION_TOUCH_INTERVAL_SECONDS');
+    }
   });
 }
 

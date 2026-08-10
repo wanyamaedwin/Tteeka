@@ -1,11 +1,13 @@
 import { NestFactory } from '@nestjs/core';
 import type { AppConfig } from '@tteeka/config';
+import cookieParser from 'cookie-parser';
 
 import { AppModule } from './app.module';
 import { APP_CONFIG } from './configuration/configuration.module';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
+  app.use(cookieParser());
   const config = app.get<AppConfig>(APP_CONFIG);
   app.enableShutdownHooks();
   await app.listen(config.apiPort);

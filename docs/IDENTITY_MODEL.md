@@ -65,6 +65,8 @@ B1.4 adds a one-to-many relationship from User to Session. Sessions authenticate
 
 B1.5 permits only an ACTIVE User with a verified PasswordCredential to receive a new Session. MerchantMembership is authorization context and is not required for login; an ACTIVE User with zero Memberships may authenticate.
 
+B1.6 resolves an ACTIVE User from an authenticated Session and exposes only User ID and display name in request authentication context. MerchantMembership remains a separate, unresolved authorization concern; request authentication does not select Merchant, Membership, Role, or Permission data.
+
 ## MerchantMembership
 
 `MerchantMembership` represents one User belonging to one Merchant.
@@ -98,4 +100,4 @@ Status changes do not delete related records. No hard-delete API exists.
 
 No Role is stored directly on User, and MerchantMembership has no single Role field. B1.3 models merchant-scoped Roles through explicit MembershipRole records, without pre-encoding owner, manager, sales, or other default roles.
 
-Password credentials and opaque Session persistence now exist as separate dependent security records. Login, logout, Session issuance, request authentication, verification, reset, and invitation workflows remain absent. Future authentication must build on this identity foundation without weakening its tenancy or integrity rules.
+Password credentials, opaque Session persistence, login issuance, and route-scoped request authentication now exist as separate security concerns. Logout, Session management, credential reset, and invitation workflows remain absent. Future authorization must build on this identity foundation without weakening its tenancy or integrity rules.

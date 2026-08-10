@@ -113,9 +113,9 @@ For future schema changes, generate a named migration with `npm run prisma:migra
 
 The password hashing utilities live in `@tteeka/security`. They provide Argon2id hashing, verification, and rehash detection used by the login flow.
 
-The opaque Session persistence foundation now exists. `@tteeka/security` generates 256-bit base64url Session secrets and deterministic SHA-256 lookup hashes; only hashes belong in PostgreSQL. Authenticated request resolution is not implemented. See [docs/SESSION_MODEL.md](docs/SESSION_MODEL.md).
+The opaque Session persistence foundation now exists. `@tteeka/security` generates and validates 256-bit base64url Session secrets and produces deterministic SHA-256 lookup hashes; only hashes belong in PostgreSQL. See [docs/SESSION_MODEL.md](docs/SESSION_MODEL.md).
 
-`POST /api/v1/auth/login` now authenticates an ACTIVE User by normalized Uganda phone and password, creates a fresh opaque Session, and returns its raw token only through an HttpOnly cookie. Authenticated request resolution, logout, rate limiting, and authorization execution are not implemented. See [docs/LOGIN_FLOW.md](docs/LOGIN_FLOW.md).
+`POST /api/v1/auth/login` authenticates an ACTIVE User by normalized Uganda phone and password, creates a fresh opaque Session, and returns its raw token only through an HttpOnly cookie. `GET /api/v1/auth/me` is the first authenticated endpoint and resolves that cookie into safe User/Session context. Merchant authorization and logout are not implemented. See [docs/LOGIN_FLOW.md](docs/LOGIN_FLOW.md) and [docs/AUTHENTICATED_REQUESTS.md](docs/AUTHENTICATED_REQUESTS.md).
 
 The merchant-scoped authorization data model now exists, including database-enforced protection against cross-merchant role assignments. Authorization decisions, guards, decorators, default Roles and Permissions, and role-management APIs are not implemented. See [docs/AUTHORIZATION_MODEL.md](docs/AUTHORIZATION_MODEL.md).
 
@@ -133,4 +133,4 @@ Use `npm run format` to apply Prettier formatting.
 
 The test command includes real identity-schema integration tests and therefore requires the local PostgreSQL infrastructure with the migration applied.
 
-See [docs/IDENTITY_MODEL.md](docs/IDENTITY_MODEL.md) for identity relationships, [docs/PASSWORD_CREDENTIALS.md](docs/PASSWORD_CREDENTIALS.md) for credential storage and hashing boundaries, [docs/AUTHORIZATION_MODEL.md](docs/AUTHORIZATION_MODEL.md) for merchant-scoped authorization persistence, [docs/SESSION_MODEL.md](docs/SESSION_MODEL.md) for opaque Sessions, [docs/LOGIN_FLOW.md](docs/LOGIN_FLOW.md) for login and cookie issuance, [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) for the exact implementation boundary, and [docs/DATABASE_CONVENTIONS.md](docs/DATABASE_CONVENTIONS.md) for persistence and migration rules.
+See [docs/IDENTITY_MODEL.md](docs/IDENTITY_MODEL.md) for identity relationships, [docs/PASSWORD_CREDENTIALS.md](docs/PASSWORD_CREDENTIALS.md) for credential storage and hashing boundaries, [docs/AUTHORIZATION_MODEL.md](docs/AUTHORIZATION_MODEL.md) for merchant-scoped authorization persistence, [docs/SESSION_MODEL.md](docs/SESSION_MODEL.md) for opaque Sessions, [docs/LOGIN_FLOW.md](docs/LOGIN_FLOW.md) for login and cookie issuance, [docs/AUTHENTICATED_REQUESTS.md](docs/AUTHENTICATED_REQUESTS.md) for protected-request resolution, [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) for the exact implementation boundary, and [docs/DATABASE_CONVENTIONS.md](docs/DATABASE_CONVENTIONS.md) for persistence and migration rules.

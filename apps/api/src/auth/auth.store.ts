@@ -18,6 +18,19 @@ export interface CreateSessionInput {
   readonly ipAddress?: string;
 }
 
+export interface AuthenticationSession {
+  readonly id: string;
+  readonly userId: string;
+  readonly expiresAt: Date;
+  readonly revokedAt: Date | null;
+  readonly lastUsedAt: Date;
+  readonly user: {
+    readonly id: string;
+    readonly displayName: string;
+    readonly status: 'ACTIVE' | 'DISABLED';
+  };
+}
+
 export interface AuthStore {
   findUserForPasswordLogin(
     phoneE164: string,
@@ -27,4 +40,12 @@ export interface AuthStore {
     passwordHash: string,
   ): Promise<void>;
   createSession(input: CreateSessionInput): Promise<void>;
+  findSessionForAuthentication(
+    tokenHash: string,
+  ): Promise<AuthenticationSession | null>;
+  touchSessionLastUsedAt(
+    sessionId: string,
+    lastUsedAtThreshold: Date,
+    now: Date,
+  ): Promise<void>;
 }
