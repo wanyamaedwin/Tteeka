@@ -1,6 +1,6 @@
 # Current State
 
-## B1.4: Opaque Session data model and secure token foundation
+## B1.5: Login and Session issuance
 
 The repository contains a backend-only npm workspace monorepo targeting Node.js 24 LTS.
 
@@ -121,16 +121,35 @@ B1.4 adds the opaque server-side Session foundation:
 
 The complete design boundary is documented in [SESSION_MODEL.md](SESSION_MODEL.md).
 
+B1.5 adds the first authentication command:
+
+- `POST /api/v1/auth/login` with Zod request validation
+- Uganda phone normalization into canonical E.164 lookup values
+- phone-and-password authentication through `@tteeka/security`
+- one generic invalid-credential response for unknown phone, wrong password, missing credential, and DISABLED User
+- a reusable in-memory dummy Argon2 verification path for missing credentials
+- ACTIVE global User enforcement without requiring a MerchantMembership
+- transparent outdated Argon2 parameter upgrades that preserve `passwordChangedAt`
+- configurable `SESSION_TTL_SECONDS`, defaulting to 43,200 seconds (12 hours)
+- a fresh opaque Session and hash-only PostgreSQL persistence per successful login
+- `tteeka_session` HttpOnly, SameSite=Lax cookie issuance with environment-derived Secure behavior
+- a safe JSON response containing only User ID/display name and Session expiry
+- no-store/no-cache response headers
+- truncated User-Agent and framework-resolved IP Session metadata
+- a narrow Auth persistence boundary with a Prisma infrastructure implementation
+- real HTTP/PostgreSQL coverage for successful and failed login, cookies, Session storage, multiple Sessions, no-Membership authentication, and password rehashing
+
+See [LOGIN_FLOW.md](LOGIN_FLOW.md) for the full command and security boundary.
+
 The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage therefore does not kill the process: liveness remains independent, while the existing direct `pg` readiness probe reports the outage. The worker constructs the same shared infrastructure but performs no database query, queue work, or business processing.
 
 ## Explicitly not implemented
 
 - frontend applications or UI
-- login, logout, logout-all, or request authentication
-- authentication controllers, services, or `AuthModule`
+- logout, logout-all, or authenticated request resolution
 - account registration or password-change APIs
-- Session issuance, listing, revocation APIs, middleware, authentication guards, or current-user endpoint
-- cookies or cookie issuance, JWTs, bearer/access tokens, or refresh tokens
+- Session listing/revocation APIs, middleware, authentication guards, Session guards, or `/me`
+- JWTs, bearer/access tokens, or refresh tokens
 - Session renewal, rotation, sliding expiration, retention cleanup, or Redis Session storage
 - password-reset tokens or password-reset workflow
 - email verification, phone verification, or OTP
@@ -138,7 +157,8 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - `AuthorizationModule`, authorization services, permission resolution, guards, or decorators
 - role-management or staff-management APIs
 - invitation workflow
-- rate limiting, account lockout, failed-login counters, MFA, or passkeys
+- rate limiting, brute-force protection, account lockout, failed-login counters, MFA, or passkeys
+- email login
 - merchant, user, or staff APIs, controllers, or business services
 - business persistence repositories
 - customers or catalogue
@@ -154,6 +174,6 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - Swagger or OpenAPI
 - business functionality of any kind
 
-Prisma remains exposed through infrastructure services; there are no identity repositories, business queries, services, controllers, or endpoints. No seed users or merchants exist.
+Prisma remains exposed through infrastructure services and the narrow Auth store; there are no general identity repositories or business APIs. No seed users or merchants exist.
 
-These items belong to later reviewed steps and are outside B1.4. B1.5 has not started.
+These items belong to later reviewed steps and are outside B1.5. B1.6 has not started.

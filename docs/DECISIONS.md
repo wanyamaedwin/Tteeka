@@ -372,3 +372,105 @@
 - **Status:** Accepted
 - **Decision:** B1.4 gives `expiresAt` no database default and defines no Session TTL, renewal, or sliding-expiry policy.
 - **Rationale:** A future issuance checkpoint must deliberately select and review lifetime policy rather than hiding it in persistence defaults.
+
+## ADR-063: Initial staff login uses phone and password
+
+- **Status:** Accepted
+- **Decision:** B1.5 authenticates only with normalized phone and password.
+- **Rationale:** Phone is the required canonical staff identity established by B1.1; email and other mechanisms require separate review.
+
+## ADR-064: Login normalizes Uganda phone input
+
+- **Status:** Accepted
+- **Decision:** Common Uganda phone representations are normalized to canonical `+256` E.164 before User lookup.
+- **Rationale:** One canonical lookup prevents presentation formatting from creating inconsistent identity behavior without adding a network dependency.
+
+## ADR-065: Credential failures are publicly generic
+
+- **Status:** Accepted
+- **Decision:** Unknown phone, wrong password, missing credential, and DISABLED User return the same HTTP 401 message and shape.
+- **Rationale:** Distinguishing these cases would enable account and credential-state enumeration.
+
+## ADR-066: Missing credentials use dummy Argon2 verification
+
+- **Status:** Accepted
+- **Decision:** Unknown and missing-credential paths verify against one reusable in-memory synthetic Argon2 hash.
+- **Rationale:** Performing comparable expensive work reduces an obvious timing discrepancy without claiming exact timing equality.
+
+## ADR-067: Only ACTIVE Users receive new Sessions
+
+- **Status:** Accepted
+- **Decision:** Password verification alone is insufficient when `User.status` is DISABLED.
+- **Rationale:** Global identity lifecycle must prevent new authentication material while preserving the generic failure contract.
+
+## ADR-068: MerchantMembership is not required for login
+
+- **Status:** Accepted
+- **Decision:** An ACTIVE User may authenticate with zero MerchantMemberships.
+- **Rationale:** Login authenticates global User identity; Merchant Membership, Role, and Permission belong to later authorization context.
+
+## ADR-069: Every login creates a fresh opaque Session
+
+- **Status:** Accepted
+- **Decision:** Successful login never accepts or reuses a client Session identifier and does not revoke older Sessions.
+- **Rationale:** Fresh cryptographic tokens prevent Session fixation while allowing intentional concurrent Sessions.
+
+## ADR-070: Initial Session lifetime is configurable and defaults to 12 hours
+
+- **Status:** Accepted
+- **Decision:** `SESSION_TTL_SECONDS` ranges from 300 through 2,592,000 seconds and defaults to 43,200.
+- **Rationale:** One reviewed staff-web policy provides a secure initial lifetime while remaining deployment configurable.
+
+## ADR-071: Raw Session tokens use HttpOnly cookie transport
+
+- **Status:** Accepted
+- **Decision:** Login delivers the raw token only through `tteeka_session` with HttpOnly enabled.
+- **Rationale:** JavaScript should not need direct access to the bearer secret and PostgreSQL must continue storing only its hash.
+
+## ADR-072: Login JSON never contains Session secrets
+
+- **Status:** Accepted
+- **Decision:** Successful JSON returns only safe User identity and Session expiry data.
+- **Rationale:** Token or hash duplication into response bodies increases accidental exposure without serving a current client need.
+
+## ADR-073: Session cookie uses SameSite Lax
+
+- **Status:** Accepted
+- **Decision:** `tteeka_session` uses `SameSite=Lax` and path `/api/v1`.
+- **Rationale:** Lax supplies a useful initial cross-site request boundary while the path covers current and future versioned API requests.
+
+## ADR-074: Secure cookie behavior derives from NODE_ENV
+
+- **Status:** Accepted
+- **Decision:** Secure is false only in development/test and mandatory in staging/production.
+- **Rationale:** Local HTTP remains usable without introducing a production override that could weaken cookie transport.
+
+## ADR-075: Session cookie sets no Domain
+
+- **Status:** Accepted
+- **Decision:** Login does not explicitly set a cookie Domain.
+- **Rationale:** Host-only scope is narrower and avoids granting the bearer cookie to sibling subdomains.
+
+## ADR-076: Successful login may upgrade Argon2 parameters
+
+- **Status:** Accepted
+- **Decision:** After correct password verification, outdated hashes are replaced using current `@tteeka/security` parameters.
+- **Rationale:** Normal successful use provides a safe opportunity to migrate stored password protection incrementally.
+
+## ADR-077: Parameter rehash preserves passwordChangedAt
+
+- **Status:** Accepted
+- **Decision:** An algorithm/parameter-only rehash updates `passwordHash` but not `passwordChangedAt`.
+- **Rationale:** The User's password did not change, so changing the semantic timestamp would record a false security event.
+
+## ADR-078: Login returns no authorization context
+
+- **Status:** Accepted
+- **Decision:** Login neither selects nor returns Merchant, Membership, Role, or Permission information.
+- **Rationale:** Authentication and tenant authorization remain separate, and no authenticated request context exists yet.
+
+## ADR-079: Rate limiting is deferred but required for hardening
+
+- **Status:** Accepted
+- **Decision:** B1.5 does not implement rate limiting, brute-force controls, or account lockout.
+- **Rationale:** These controls require separately reviewed policy and infrastructure, but production hardening is incomplete without them.

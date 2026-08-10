@@ -41,6 +41,12 @@ const environmentSchema = z.object({
     .positive()
     .max(60_000)
     .default(2000),
+  SESSION_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(300)
+    .max(2_592_000)
+    .default(43_200),
 });
 
 export type RawEnvironment = Readonly<Record<string, string | undefined>>;
@@ -52,6 +58,7 @@ export interface AppConfig {
   readonly databaseUrl: string;
   readonly redisUrl: string;
   readonly infraHealthTimeoutMs: number;
+  readonly sessionTtlSeconds: number;
 }
 
 export class ConfigurationError extends Error {
@@ -79,5 +86,6 @@ export function loadConfig(environment: RawEnvironment): AppConfig {
     databaseUrl: result.data.DATABASE_URL,
     redisUrl: result.data.REDIS_URL,
     infraHealthTimeoutMs: result.data.INFRA_HEALTH_TIMEOUT_MS,
+    sessionTtlSeconds: result.data.SESSION_TTL_SECONDS,
   });
 }

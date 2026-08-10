@@ -10,7 +10,7 @@
     "build": "tsc --project tsconfig.build.json",
     "dev": "npm run build --workspace @tteeka/config && npm run build --workspace @tteeka/database && node --env-file-if-exists=../../.env --import tsx --watch src/main.ts",
     "start": "node --env-file-if-exists=../../.env dist/main.js",
-    "test": "npm run build --workspace @tteeka/config && npm run build --workspace @tteeka/database && node --import tsx --test src/database/database.service.spec.ts src/health/health.service.spec.ts",
+    "test": "npm run build --workspace @tteeka/config && npm run build --workspace @tteeka/security && npm run build --workspace @tteeka/database && node --env-file-if-exists=../../.env --import tsx --test src/database/database.service.spec.ts src/health/health.service.spec.ts src/auth/uganda-phone.spec.ts src/auth/auth.controller.spec.ts src/auth/auth.e2e.spec.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {
@@ -19,12 +19,15 @@
     "@nestjs/platform-express": "^11.1.6",
     "@tteeka/config": "^0.0.0",
     "@tteeka/database": "^0.0.0",
+    "@tteeka/security": "^0.0.0",
     "pg": "^8.23.0",
     "redis": "^6.2.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/pg": "^8.21.0"
+    "@types/pg": "^8.21.0",
+    "argon2": "0.45.1"
   }
 }

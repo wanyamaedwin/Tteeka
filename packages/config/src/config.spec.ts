@@ -36,7 +36,31 @@ void test('valid development configuration succeeds with defaults', () => {
   assert.equal(config.nodeEnv, 'development');
   assert.equal(config.apiPort, 3000);
   assert.equal(config.infraHealthTimeoutMs, 2000);
+  assert.equal(config.sessionTtlSeconds, 43_200);
 });
+
+void test('accepts a custom Session TTL', () => {
+  assert.equal(
+    loadConfig({ ...VALID_ENVIRONMENT, SESSION_TTL_SECONDS: '3600' })
+      .sessionTtlSeconds,
+    3600,
+  );
+});
+
+for (const [description, value] of [
+  ['zero', '0'],
+  ['negative', '-1'],
+  ['below minimum', '299'],
+  ['above maximum', '2592001'],
+  ['non-integer', '300.5'],
+] as const) {
+  void test(`rejects ${description} Session TTL`, () => {
+    expectConfigurationError(
+      { ...VALID_ENVIRONMENT, SESSION_TTL_SECONDS: value },
+      'SESSION_TTL_SECONDS',
+    );
+  });
+}
 
 void test('missing DATABASE_URL fails', () => {
   expectConfigurationError(without('DATABASE_URL'), 'DATABASE_URL');

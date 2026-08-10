@@ -52,9 +52,9 @@ The hashing package deliberately contains no password-strength policy. Length ru
 
 The following directions are explicitly future work and are not implemented:
 
-- A login flow may locate a User, retrieve the credential, verify the candidate, replace the hash after a successful verification when `passwordNeedsRehash` is true, and then deliberately issue a Session. That flow is not implemented.
+- B1.5 login locates a User by normalized phone, verifies its PasswordCredential, and deliberately issues a Session only for an ACTIVE User. When `passwordNeedsRehash` is true after successful verification, login replaces only `passwordHash` using current parameters. This parameter-only upgrade does not change `passwordChangedAt`, because the User did not change the password.
 - A password-change flow may verify the existing credential where appropriate, hash the replacement, and atomically update `passwordHash` and `passwordChangedAt`.
 - A password-reset flow requires separately designed reset tokens, expiry, abuse controls, delivery, and session consequences.
-- Registration, Session issuance, cookies, JWTs, refresh tokens, OTP, invitations, account lockout, rate limiting, and authentication/authorization controllers remain absent. Session persistence and token primitives exist independently as of B1.4.
+- Registration, authenticated request resolution, logout, JWTs, refresh tokens, OTP, invitations, account lockout, rate limiting, and authorization guards remain absent. B1.5 provides only login and Session-cookie issuance.
 
 Applications may depend on both `@tteeka/security` and `@tteeka/database`. `@tteeka/security` must not depend on the database package. `@tteeka/database` has no runtime security dependency; its integration tests use `@tteeka/security` only as a development dependency to prove that an encoded hash—not plaintext—crosses the persistence boundary.

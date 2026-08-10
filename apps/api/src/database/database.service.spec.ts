@@ -12,6 +12,7 @@ const CONFIG: AppConfig = Object.freeze({
   databaseUrl: 'postgresql://tteeka:test@127.0.0.1:5432/tteeka',
   redisUrl: 'redis://127.0.0.1:6379',
   infraHealthTimeoutMs: 2000,
+  sessionTtlSeconds: 43_200,
 });
 
 void test('database service constructs from validated AppConfig', () => {

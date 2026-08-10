@@ -63,6 +63,8 @@ The status index is `users_status_idx`.
 
 B1.4 adds a one-to-many relationship from User to Session. Sessions authenticate the global User and deliberately contain no Merchant authorization context. They are dependent security material; see [SESSION_MODEL.md](SESSION_MODEL.md).
 
+B1.5 permits only an ACTIVE User with a verified PasswordCredential to receive a new Session. MerchantMembership is authorization context and is not required for login; an ACTIVE User with zero Memberships may authenticate.
+
 ## MerchantMembership
 
 `MerchantMembership` represents one User belonging to one Merchant.
