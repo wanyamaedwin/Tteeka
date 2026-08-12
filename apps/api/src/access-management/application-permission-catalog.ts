@@ -2,6 +2,7 @@ import { MERCHANT_PERMISSIONS } from '../merchants/merchant-permissions';
 import { CATALOGUE_PERMISSIONS } from '../catalogue/catalogue-permissions';
 import { INVENTORY_PERMISSIONS } from '../inventory/inventory-permissions';
 import { CUSTOMER_PERMISSIONS } from '../customers/customer-permissions';
+import { ORDER_PERMISSIONS } from '../orders/order-permissions';
 import { ACCESS_MANAGEMENT_PERMISSIONS } from './access-management-permissions';
 
 export interface ApplicationPermissionCatalogEntry {
@@ -69,6 +70,14 @@ export const APPLICATION_PERMISSION_CATALOG = [
   {
     key: ACCESS_MANAGEMENT_PERMISSIONS.STAFF_READ,
     description: 'Read merchant staff memberships',
+  },
+  {
+    key: ORDER_PERMISSIONS.MANAGE,
+    description: 'Manage merchant draft orders',
+  },
+  {
+    key: ORDER_PERMISSIONS.READ,
+    description: 'Read merchant orders and commercial snapshots',
   },
 ] as const satisfies readonly ApplicationPermissionCatalogEntry[];
 

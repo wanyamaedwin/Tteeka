@@ -1537,3 +1537,17 @@
 8. There is no default location, geocoding, coordinate, delivery zone, fee, rider, or external map integration in B5.
 9. `customers.read` and `customers.manage` are exact independent Permissions; synchronization remains explicit and grants remain unchanged.
 10. Future Orders will own any immutable customer or delivery snapshots; B5 does not link Customers to StockHolds or introduce Orders/Reservations.
+
+# B6.1 draft-order decisions
+
+1. Order is the central commercial record; Payment, Delivery, Inventory/Holds, and Receipts remain independent future domains.
+2. The full lifecycle enum is frozen now, but B6.1 produces only DRAFT, ABANDONED, and CANCELLED and exposes no confirmation transition.
+3. Current Customer, DeliveryLocation, Product, Variant, and price references are copied into bounded commercial snapshots that mutable source records never rewrite.
+4. Customer/location PATCH and item PUT are DRAFT-only; explicit abandon/cancel commands are terminal and naturally idempotent.
+5. Item PUT is an atomic desired-state replacement capped at 100 unique Variants and serialized by a PostgreSQL Order-row lock.
+6. Existing lines preserve commercial snapshots on quantity change; a removed and later re-added Variant receives a fresh snapshot.
+7. Quantity, unit price, line total, and subtotal use PostgreSQL BIGINT with explicit multiplication and summation overflow checks and decimal-string APIs.
+8. Every Order is single-currency from Variant price snapshots; empty Orders have null currency and zero subtotal.
+9. Order creation uses Merchant-scoped visible-ASCII idempotency keys plus deterministic request hashes; neither is public API data.
+10. `orders.read` and `orders.manage` are exact independent grants and do not require Customer or Catalogue permissions for known references.
+11. DRAFT contents deliberately ignore current stock. B6.2 owns confirmation and StockHold coordination.

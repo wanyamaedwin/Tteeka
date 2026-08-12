@@ -106,3 +106,9 @@ The existing Merchant-context endpoint remains an inspection endpoint rather tha
 # B5 customer permissions
 
 `customers.read` protects all Customer and nested DeliveryLocation GET routes. `customers.manage` protects all Customer and nested DeliveryLocation POST/PATCH routes. A manage-only caller may execute a write when the IDs and payload are already known but receives 403 from list/detail routes; manage does not imply read. Both use the standard Session, Merchant-context, and exact-Permission guard chain. The explicit catalog now has 15 keys, while `permissions:sync` remains manual and creates no Role grants. See [CUSTOMERS_DELIVERY_LOCATIONS.md](CUSTOMERS_DELIVERY_LOCATIONS.md).
+
+# B6.1 order permissions
+
+`orders.read` protects Order list/detail and OrderItem reads. `orders.manage` protects draft creation, Customer/location PATCH, desired-state item PUT, abandon, and cancel. They are exact independent grants: manage does not expose GET routes and read cannot mutate Orders.
+
+Order snapshots are Order-owned commercial data, so `orders.read` does not additionally require `customers.read` or `catalogue.read`. Likewise, known Customer/location/Variant references supplied to commands are validated internally under `orders.manage` without Customer or Catalogue grants. The explicit catalog now has 17 keys; manual synchronization still creates no grants or Roles. See [DRAFT_ORDERS.md](DRAFT_ORDERS.md).

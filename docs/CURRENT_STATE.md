@@ -297,7 +297,7 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - Session renewal, rotation, sliding expiration, retention cleanup, or Redis Session storage
 - a global authentication guard or global public/private route metadata
 - Merchant context, Membership resolution, Role resolution, or Permission resolution during authentication itself
-- business routes beyond the implemented Merchant, access-management, catalogue/pricing, inventory/holds, and customer/delivery-location surfaces
+- business routes beyond the implemented Merchant, access-management, catalogue/pricing, inventory/holds, customer/delivery-location, and draft-order surfaces
 - multi-Permission requirement metadata or any/all route composition
 - CSRF defense for future authenticated state-changing browser requests
 - password-reset tokens or password-reset workflow
@@ -320,7 +320,7 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - Product or Variant images/media
 - Category or Brand CRUD/tables, public storefront, or customer-facing Product visibility
 - customer authentication accounts, customer analytics, loyalty, or WhatsApp conversations
-- orders or payments
+- Order confirmation, payments, fulfilment, or completion
 - cash on delivery (COD) settings or behavior
 - order-owned holds, partial release, or stock-hold policy settings
 - delivery settings, riders, or returns settings
@@ -358,3 +358,11 @@ B5 adds Merchant-owned Customer identities and reusable DeliveryLocations in the
 Eight guarded routes provide strict create, list, detail, and PATCH operations. Customer lists support search, exact normalized phone and status filters, and bounded pagination; location lists are Customer-scoped with status filtering and bounded pagination. `customers.read` and `customers.manage` are independent exact grants, expanding production to 48 routes and 15 Permission keys. Tenant-safe composite ownership and generic not-found behavior prevent cross-Merchant and cross-Customer disclosure.
 
 B5 adds no User linkage, Order or Reservation model, StockHold customer field, default address, postal-address abstraction, delivery zone/fee/rider, WhatsApp records, analytics, or Redis cache. See [CUSTOMERS_DELIVERY_LOCATIONS.md](CUSTOMERS_DELIVERY_LOCATIONS.md).
+
+# B6.1 — Draft orders and commercial snapshots
+
+B6.1 adds the central Merchant-owned Order aggregate and OrderItems in the tenth migration. Draft creation snapshots active Customer and optional active DeliveryLocation identity; desired-state item replacement snapshots active Product/Variant identity and current price without consulting inventory. BIGINT-safe line totals and single-currency subtotal are server-authoritative.
+
+The complete frozen status enum is DRAFT, CONFIRMED, FULFILLED, COMPLETED, ABANDONED, and CANCELLED, while B6.1 implements only DRAFT creation plus idempotent abandon/cancel commands. Eight guarded routes bring production to 56 routes. Exact independent `orders.read` and `orders.manage` grants bring the explicit catalog to 17 keys.
+
+PostgreSQL row locks serialize DRAFT edits and terminal transitions. B6.1 adds no confirmation, StockHold linkage, reservation, inventory movement, Payment/COD, delivery operation, discount/tax, friendly order number, or Redis cache. See [DRAFT_ORDERS.md](DRAFT_ORDERS.md).

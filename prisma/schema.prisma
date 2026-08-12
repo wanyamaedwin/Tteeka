@@ -97,6 +97,17 @@ enum DeliveryLocationStatus {
   @@map("delivery_location_status")
 }
 
+enum OrderStatus {
+  DRAFT
+  CONFIRMED
+  FULFILLED
+  COMPLETED
+  ABANDONED
+  CANCELLED
+
+  @@map("order_status")
+}
+
 model Merchant {
   id          String         @id(map: "merchants_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
   displayName String         @map("display_name") @db.VarChar(160)
@@ -117,6 +128,8 @@ model Merchant {
   stockHolds             StockHold[]
   customers              Customer[]
   deliveryLocations      DeliveryLocation[]
+  orders                 Order[]
+  orderItems             OrderItem[]
 
   @@index([status], map: "merchants_status_idx")
   @@map("merchants")
@@ -133,6 +146,7 @@ model Customer {
 
   merchant          Merchant           @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "customers_merchant_id_fkey")
   deliveryLocations DeliveryLocation[]
+  orders            Order[]
 
   @@unique([merchantId, id], map: "customers_merchant_id_id_key")
   @@unique([merchantId, phone], map: "customers_merchant_id_phone_key")
@@ -156,8 +170,10 @@ model DeliveryLocation {
 
   merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "delivery_locations_merchant_id_fkey")
   customer Customer @relation(fields: [merchantId, customerId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "delivery_locations_merchant_id_customer_id_fkey")
+  orders   Order[]
 
   @@unique([merchantId, id], map: "delivery_locations_merchant_id_id_key")
+  @@unique([merchantId, customerId, id], map: "delivery_locations_merchant_customer_id_key")
   @@index([merchantId, customerId, status], map: "delivery_locations_merchant_customer_status_idx")
   @@index([merchantId, customerId, createdAt, id], map: "delivery_locations_merchant_customer_created_id_idx")
   @@map("delivery_locations")
@@ -206,6 +222,7 @@ model ProductVariant {
   inventoryBalances      InventoryBalance[]
   inventoryLedgerEntries InventoryLedgerEntry[]
   stockHolds             StockHold[]
+  orderItems             OrderItem[]
 
   @@unique([merchantId, id], map: "product_variants_merchant_id_id_key")
   @@unique([merchantId, sku], map: "product_variants_merchant_id_sku_key")
@@ -213,6 +230,67 @@ model ProductVariant {
   @@index([merchantId, productId, sku, id], map: "product_variants_merchant_id_product_id_sku_id_idx")
   @@index([merchantId, productId, status, sku, id], map: "product_variants_merchant_id_product_id_status_sku_id_idx")
   @@map("product_variants")
+}
+
+model Order {
+  id                           String      @id(map: "orders_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  merchantId                   String      @map("merchant_id") @db.Uuid
+  customerId                   String      @map("customer_id") @db.Uuid
+  status                       OrderStatus @default(DRAFT)
+  customerNameSnapshot         String?     @map("customer_name_snapshot") @db.VarChar(160)
+  customerPhoneSnapshot        String      @map("customer_phone_snapshot") @db.VarChar(13)
+  deliveryLocationId           String?     @map("delivery_location_id") @db.Uuid
+  deliveryAreaSnapshot         String?     @map("delivery_area_snapshot") @db.VarChar(120)
+  deliveryLandmarkSnapshot     String?     @map("delivery_landmark_snapshot") @db.VarChar(240)
+  deliveryPhoneSnapshot        String?     @map("delivery_phone_snapshot") @db.VarChar(13)
+  deliveryInstructionsSnapshot String?     @map("delivery_instructions_snapshot") @db.VarChar(500)
+  deliveryMapPinUrlSnapshot    String?     @map("delivery_map_pin_url_snapshot") @db.VarChar(2048)
+  currency                     String?     @db.Char(3)
+  subtotal                     BigInt      @default(0)
+  idempotencyKey               String      @map("idempotency_key") @db.VarChar(128)
+  requestHash                  String      @map("request_hash") @db.Char(64)
+  createdAt                    DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                    DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  abandonedAt                  DateTime?   @map("abandoned_at") @db.Timestamptz(3)
+  cancelledAt                  DateTime?   @map("cancelled_at") @db.Timestamptz(3)
+
+  merchant         Merchant          @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "orders_merchant_id_fkey")
+  customer         Customer          @relation(fields: [merchantId, customerId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "orders_merchant_id_customer_id_fkey")
+  deliveryLocation DeliveryLocation? @relation(fields: [merchantId, customerId, deliveryLocationId], references: [merchantId, customerId, id], onDelete: Restrict, onUpdate: Cascade, map: "orders_delivery_location_fkey")
+  items            OrderItem[]
+
+  @@unique([merchantId, id], map: "orders_merchant_id_id_key")
+  @@unique([merchantId, idempotencyKey], map: "orders_merchant_id_idempotency_key_key")
+  @@index([merchantId, status, createdAt, id], map: "orders_merchant_status_created_id_idx")
+  @@index([merchantId, customerId, createdAt, id], map: "orders_merchant_customer_created_id_idx")
+  @@map("orders")
+}
+
+model OrderItem {
+  id                  String   @id(map: "order_items_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  merchantId          String   @map("merchant_id") @db.Uuid
+  orderId             String   @map("order_id") @db.Uuid
+  variantId           String   @map("variant_id") @db.Uuid
+  productNameSnapshot String   @map("product_name_snapshot") @db.VarChar(160)
+  skuSnapshot         String   @map("sku_snapshot") @db.VarChar(64)
+  sizeSnapshot        String?  @map("size_snapshot") @db.VarChar(80)
+  colourSnapshot      String?  @map("colour_snapshot") @db.VarChar(80)
+  quantity            BigInt
+  unitSellingPrice    BigInt   @map("unit_selling_price")
+  currency            String   @db.Char(3)
+  lineTotal           BigInt   @map("line_total")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  merchant Merchant       @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "order_items_merchant_id_fkey")
+  order    Order          @relation(fields: [merchantId, orderId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "order_items_merchant_id_order_id_fkey")
+  variant  ProductVariant @relation(fields: [merchantId, variantId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "order_items_merchant_id_variant_id_fkey")
+
+  @@unique([merchantId, id], map: "order_items_merchant_id_id_key")
+  @@unique([merchantId, orderId, variantId], map: "order_items_merchant_order_variant_key")
+  @@index([merchantId, orderId], map: "order_items_merchant_order_idx")
+  @@index([merchantId, variantId], map: "order_items_merchant_variant_idx")
+  @@map("order_items")
 }
 
 model InventoryBalance {
