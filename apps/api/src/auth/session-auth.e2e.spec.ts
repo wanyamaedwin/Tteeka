@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { randomInt, randomUUID } from 'node:crypto';
 import { after, before, test } from 'node:test';
 
-import type { INestApplication } from '@nestjs/common';
+import { Module, type INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { createPrismaClient, disconnectPrismaClient } from '@tteeka/database';
 import {
@@ -12,8 +12,13 @@ import {
 } from '@tteeka/security';
 import cookieParser from 'cookie-parser';
 
-import { AppModule } from '../app.module';
+import { ConfigurationModule } from '../configuration/configuration.module';
+import { DatabaseModule } from '../database/database.module';
+import { AuthModule } from './auth.module';
 import { SESSION_COOKIE_NAME } from './session-cookie';
+
+@Module({ imports: [ConfigurationModule, DatabaseModule, AuthModule] })
+class AuthE2eModule {}
 
 const databaseUrl = process.env.DATABASE_URL;
 if (databaseUrl === undefined || databaseUrl.trim().length === 0) {
@@ -102,7 +107,7 @@ function rawCookieToken(response: Response): string {
 }
 
 before(async () => {
-  app = await NestFactory.create(AppModule, {
+  app = await NestFactory.create(AuthE2eModule, {
     logger: ['error'],
     abortOnError: false,
   });
