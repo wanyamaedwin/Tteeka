@@ -114,3 +114,9 @@ The existing Merchant-context endpoint remains an inspection endpoint rather tha
 Order snapshots are Order-owned commercial data, so `orders.read` does not additionally require `customers.read` or `catalogue.read`. Likewise, known Customer/location/Variant references supplied to commands are validated internally under `orders.manage` without Customer or Catalogue grants. The explicit catalog now has 17 keys; manual synchronization still creates no grants or Roles. See [DRAFT_ORDERS.md](DRAFT_ORDERS.md).
 
 B6.2 keeps the catalogue at 17 keys. `orders.manage` alone permits confirmation and internal StockHold coordination; Inventory permissions are not required. `orders.read` alone exposes the safe OrderItem Hold summary but no general Inventory endpoints. Conversely, `inventory.read` may see a normal Hold representation without Order/OrderItem linkage, Customer data, or commercial snapshots. See [ORDER_CONFIRMATION_STOCK_HOLDS.md](ORDER_CONFIRMATION_STOCK_HOLDS.md).
+
+# B7.1 payment permissions
+
+`payments.read` protects Order-scoped PaymentTransaction list/detail and the derived payment summary. `payments.manage` protects reporting, verification-pending, verify, and reject commands. They are exact independent grants: manage does not expose reads and read cannot mutate financial history.
+
+Payment permissions are also independent from Order permissions. A caller with the appropriate Payment grant may operate on a known Order ID without `orders.read` or `orders.manage`; the Payment service performs scoped internal validation. Conversely, `orders.read` alone exposes no PaymentTransaction list, detail, or summary. The explicit catalog now has 19 keys, while synchronization remains an explicit operation and creates no grants or Roles. See [PAYMENT_TRANSACTIONS.md](PAYMENT_TRANSACTIONS.md).

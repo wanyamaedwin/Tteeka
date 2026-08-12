@@ -6,6 +6,7 @@ import { CATALOGUE_PERMISSIONS } from '../catalogue/catalogue-permissions';
 import { INVENTORY_PERMISSIONS } from '../inventory/inventory-permissions';
 import { CUSTOMER_PERMISSIONS } from '../customers/customer-permissions';
 import { ORDER_PERMISSIONS } from '../orders/order-permissions';
+import { PAYMENT_PERMISSIONS } from '../payments/payment-permissions';
 import { ACCESS_MANAGEMENT_PERMISSIONS } from './access-management-permissions';
 import {
   APPLICATION_PERMISSION_CATALOG,
@@ -21,7 +22,7 @@ void test('defines the exact B2.2 Permission constants', () => {
   });
 });
 
-void test('catalog composes exactly the seventeen implemented production keys', () => {
+void test('catalog composes exactly the nineteen implemented production keys', () => {
   assert.deepEqual(
     new Set(APPLICATION_PERMISSION_KEYS),
     new Set([
@@ -31,10 +32,11 @@ void test('catalog composes exactly the seventeen implemented production keys', 
       ...Object.values(INVENTORY_PERMISSIONS),
       ...Object.values(CUSTOMER_PERMISSIONS),
       ...Object.values(ORDER_PERMISSIONS),
+      ...Object.values(PAYMENT_PERMISSIONS),
     ]),
   );
-  assert.equal(APPLICATION_PERMISSION_KEYS.length, 17);
-  assert.equal(new Set(APPLICATION_PERMISSION_KEYS).size, 17);
+  assert.equal(APPLICATION_PERMISSION_KEYS.length, 19);
+  assert.equal(new Set(APPLICATION_PERMISSION_KEYS).size, 19);
 });
 
 void test('catalog is deterministic, described, and excludes test keys', () => {

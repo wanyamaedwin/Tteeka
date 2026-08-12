@@ -34,4 +34,4 @@ B6.2 supports `CONFIRMED -> CANCELLED`. Cancellation locks the Order and associa
 
 ## Boundary
 
-B6.2 adds no FULFILLED/COMPLETED transition, hold consumption, Inventory movement, SALE movement, HELD InventoryState, Payment/COD, Delivery/rider/fee/zone, receipts, scheduler, Redis authority, audit, or outbox.
+B6.2 adds no FULFILLED/COMPLETED transition, hold consumption, Inventory movement, SALE movement, HELD InventoryState, Payment/COD, Delivery/rider/fee/zone, receipts, scheduler, Redis authority, audit, or outbox. B7.1 later adds PaymentTransactions as a separate domain: reporting or verification never creates, extends, releases, expires, or consumes these StockHolds and never changes Inventory balances or ledger history. Cancellation retains verified Payment history without automatic refund. See [PAYMENT_TRANSACTIONS.md](PAYMENT_TRANSACTIONS.md).

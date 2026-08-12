@@ -1566,3 +1566,18 @@
 10. Hold expiry is independent from Order status and triggers no cancellation, reopening, renewal, or re-reservation.
 11. CONFIRMED may transition to CANCELLED, releasing active Holds and persisting due Holds as EXPIRED; CONFIRMED may not be abandoned.
 12. FULFILLED, COMPLETED, consumption, Payment, Delivery, receipts, scheduler, audit, and outbox remain deferred.
+
+# B7.1 payment decisions
+
+1. PaymentTransaction is independent from Order lifecycle, Inventory, StockHolds, Delivery, and Receipts; Order stores no authoritative payment summary columns.
+2. CASH, MTN_MOMO, and AIRTEL_MONEY are the only methods; COD is a later collection mode, not a payment method.
+3. Reports are accepted for nonempty DRAFT and CONFIRMED Orders and snapshot the authoritative Order currency under an Order-row lock.
+4. All reports begin REPORTED. Verification is an explicit authorized Merchant operation and never follows from a screenshot.
+5. Mobile Money payer phone is required and uses shared Uganda normalization; provider references remain optional, opaque, and non-unique.
+6. Positive amounts and all summary arithmetic use PostgreSQL BIGINT and decimal-string APIs.
+7. Report idempotency is Merchant-local over a canonical request fingerprint; exact replay returns the original and mismatched reuse conflicts.
+8. Lifecycle commands lock the PaymentTransaction row, preserve replay timestamps, and prevent verify/reject races from producing hybrid history.
+9. Only VERIFIED contributes to the derived Order summary. Empty zero-value Orders remain UNPAID, overpayment is represented rather than rejected, and REFUNDED arithmetic is deferred.
+10. `payments.read` and `payments.manage` are exact independent Permissions; neither requires or implies an Orders Permission.
+11. Cancellation or abandonment retains payment history and performs no automatic reversal or refund.
+12. Provider APIs, webhooks, automatic verification, settlement/reconciliation, refund commands, COD/delivery collection, receipts, workers, audit, and outbox remain outside B7.1.

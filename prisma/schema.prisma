@@ -108,6 +108,26 @@ enum OrderStatus {
   @@map("order_status")
 }
 
+enum PaymentMethod {
+  CASH
+  MTN_MOMO
+  AIRTEL_MONEY
+
+  @@map("payment_method")
+}
+
+enum PaymentTransactionStatus {
+  REPORTED
+  VERIFICATION_PENDING
+  VERIFIED
+  REJECTED
+  FAILED
+  REVERSED
+  REFUNDED
+
+  @@map("payment_transaction_status")
+}
+
 model Merchant {
   id          String         @id(map: "merchants_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
   displayName String         @map("display_name") @db.VarChar(160)
@@ -130,6 +150,7 @@ model Merchant {
   deliveryLocations      DeliveryLocation[]
   orders                 Order[]
   orderItems             OrderItem[]
+  paymentTransactions    PaymentTransaction[]
 
   @@index([status], map: "merchants_status_idx")
   @@map("merchants")
@@ -258,10 +279,11 @@ model Order {
   confirmationIdempotencyKey   String?     @map("confirmation_idempotency_key") @db.VarChar(128)
   confirmationRequestHash      String?     @map("confirmation_request_hash") @db.Char(64)
 
-  merchant         Merchant          @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "orders_merchant_id_fkey")
-  customer         Customer          @relation(fields: [merchantId, customerId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "orders_merchant_id_customer_id_fkey")
-  deliveryLocation DeliveryLocation? @relation(fields: [merchantId, customerId, deliveryLocationId], references: [merchantId, customerId, id], onDelete: Restrict, onUpdate: Cascade, map: "orders_delivery_location_fkey")
-  items            OrderItem[]
+  merchant            Merchant             @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "orders_merchant_id_fkey")
+  customer            Customer             @relation(fields: [merchantId, customerId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "orders_merchant_id_customer_id_fkey")
+  deliveryLocation    DeliveryLocation?    @relation(fields: [merchantId, customerId, deliveryLocationId], references: [merchantId, customerId, id], onDelete: Restrict, onUpdate: Cascade, map: "orders_delivery_location_fkey")
+  items               OrderItem[]
+  paymentTransactions PaymentTransaction[]
 
   @@unique([merchantId, id], map: "orders_merchant_id_id_key")
   @@unique([merchantId, idempotencyKey], map: "orders_merchant_id_idempotency_key_key")
@@ -269,6 +291,41 @@ model Order {
   @@index([merchantId, status, createdAt, id], map: "orders_merchant_status_created_id_idx")
   @@index([merchantId, customerId, createdAt, id], map: "orders_merchant_customer_created_id_idx")
   @@map("orders")
+}
+
+model PaymentTransaction {
+  id                    String                   @id(map: "payment_transactions_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  merchantId            String                   @map("merchant_id") @db.Uuid
+  orderId               String                   @map("order_id") @db.Uuid
+  method                PaymentMethod
+  status                PaymentTransactionStatus @default(REPORTED)
+  amount                BigInt
+  currency              String                   @db.Char(3)
+  payerPhone            String?                  @map("payer_phone") @db.VarChar(13)
+  providerReference     String?                  @map("provider_reference") @db.VarChar(160)
+  merchantReference     String?                  @map("merchant_reference") @db.VarChar(160)
+  note                  String?                  @db.VarChar(500)
+  reportedAt            DateTime                 @map("reported_at") @db.Timestamptz(3)
+  verificationPendingAt DateTime?                @map("verification_pending_at") @db.Timestamptz(3)
+  verifiedAt            DateTime?                @map("verified_at") @db.Timestamptz(3)
+  rejectedAt            DateTime?                @map("rejected_at") @db.Timestamptz(3)
+  failedAt              DateTime?                @map("failed_at") @db.Timestamptz(3)
+  reversedAt            DateTime?                @map("reversed_at") @db.Timestamptz(3)
+  refundedAt            DateTime?                @map("refunded_at") @db.Timestamptz(3)
+  idempotencyKey        String                   @map("idempotency_key") @db.VarChar(128)
+  requestHash           String                   @map("request_hash") @db.Char(64)
+  createdAt             DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "payment_transactions_merchant_id_fkey")
+  order    Order    @relation(fields: [merchantId, orderId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "payment_transactions_merchant_id_order_id_fkey")
+
+  @@unique([merchantId, id], map: "payment_transactions_merchant_id_id_key")
+  @@unique([merchantId, idempotencyKey], map: "payment_transactions_merchant_id_idempotency_key_key")
+  @@index([merchantId, orderId, createdAt, id], map: "payment_transactions_merchant_order_created_id_idx")
+  @@index([merchantId, orderId, status], map: "payment_transactions_merchant_order_status_idx")
+  @@index([merchantId, orderId, method], map: "payment_transactions_merchant_order_method_idx")
+  @@map("payment_transactions")
 }
 
 model OrderItem {

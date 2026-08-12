@@ -297,7 +297,7 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - Session renewal, rotation, sliding expiration, retention cleanup, or Redis Session storage
 - a global authentication guard or global public/private route metadata
 - Merchant context, Membership resolution, Role resolution, or Permission resolution during authentication itself
-- business routes beyond the implemented Merchant, access-management, catalogue/pricing, inventory/holds, customer/delivery-location, and draft-order surfaces
+- business routes beyond the implemented Merchant, access-management, catalogue/pricing, inventory/holds, customer/delivery-location, Order, and Payment surfaces
 - multi-Permission requirement metadata or any/all route composition
 - CSRF defense for future authenticated state-changing browser requests
 - password-reset tokens or password-reset workflow
@@ -320,7 +320,7 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - Product or Variant images/media
 - Category or Brand CRUD/tables, public storefront, or customer-facing Product visibility
 - customer authentication accounts, customer analytics, loyalty, or WhatsApp conversations
-- Order confirmation, payments, fulfilment, or completion
+- fulfilment or Order completion
 - cash on delivery (COD) settings or behavior
 - order-owned holds, partial release, or stock-hold policy settings
 - delivery settings, riders, or returns settings
@@ -333,7 +333,7 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 
 Prisma remains exposed through infrastructure services and narrow Auth, Authorization, Merchant, and AccessManagement stores; there are no general repositories. No seed Users, Merchants, or Roles exist. Permission synchronization is an explicit operational command only.
 
-These items belong to later reviewed steps and remain outside the completed B4.2 scope.
+These items belong to later reviewed steps and remain outside the completed B7.1 scope.
 
 # B4.1 — Inventory ledger and stock availability
 
@@ -374,3 +374,11 @@ B6.2 adds the eleventh migration and one `orders.manage` confirmation route, bri
 The command is Merchant-scoped idempotent, all-or-nothing, snapshot-preserving, catalogue-lifecycle independent, and shares Inventory's AVAILABLE-row capacity authority. It changes neither physical InventoryBalance nor InventoryLedgerEntry. Order reads expose safe effective Hold summaries through `orders.read`; generic Inventory APIs conceal Order linkage and cannot independently release or reschedule Order-managed Holds.
 
 CONFIRMED Orders may transition to CANCELLED, atomically releasing active Holds and expiring due Holds. Hold expiry never changes Order status and causes no automatic re-reservation. Fulfilment, completion, payment, delivery, consumption, receipts, scheduling, audit, and outbox remain absent. See [ORDER_CONFIRMATION_STOCK_HOLDS.md](ORDER_CONFIRMATION_STOCK_HOLDS.md).
+
+# B7.1 — Payment transactions and manual verification
+
+B7.1 adds the twelfth migration and an independent, Merchant/Order-owned `PaymentTransaction` model. CASH, MTN_MOMO, and AIRTEL_MONEY reports begin REPORTED; authorized Merchant operations may manually mark Mobile Money verification pending, verify eligible payments, or reject nonterminal reports. PostgreSQL row locks serialize report-vs-DRAFT-edit and verify-vs-reject races.
+
+Seven guarded Order-scoped routes bring production to 64 routes. Exact independent `payments.read` and `payments.manage` grants bring the code-owned catalog to 19 keys. Reporting is Merchant-idempotent, money remains BIGINT-safe decimal-string data, and payment responses omit keys and hashes.
+
+Order payment state is derived rather than persisted. Only VERIFIED transactions contribute to verified total, amount due, and UNPAID/PARTIALLY_PAID/PAID/OVERPAID status. Payment operations do not change Order lifecycle, physical Inventory, ledger entries, or StockHolds, and cancellation retains payment history. Provider APIs, webhooks, automatic verification, settlement/reconciliation, refund commands, delivery/COD collection, receipts, workers, audit, and outbox remain absent. See [PAYMENT_TRANSACTIONS.md](PAYMENT_TRANSACTIONS.md).

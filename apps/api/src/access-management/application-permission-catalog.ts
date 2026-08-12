@@ -3,6 +3,7 @@ import { CATALOGUE_PERMISSIONS } from '../catalogue/catalogue-permissions';
 import { INVENTORY_PERMISSIONS } from '../inventory/inventory-permissions';
 import { CUSTOMER_PERMISSIONS } from '../customers/customer-permissions';
 import { ORDER_PERMISSIONS } from '../orders/order-permissions';
+import { PAYMENT_PERMISSIONS } from '../payments/payment-permissions';
 import { ACCESS_MANAGEMENT_PERMISSIONS } from './access-management-permissions';
 
 export interface ApplicationPermissionCatalogEntry {
@@ -78,6 +79,14 @@ export const APPLICATION_PERMISSION_CATALOG = [
   {
     key: ORDER_PERMISSIONS.READ,
     description: 'Read merchant orders and commercial snapshots',
+  },
+  {
+    key: PAYMENT_PERMISSIONS.MANAGE,
+    description: 'Report and manually verify merchant payments',
+  },
+  {
+    key: PAYMENT_PERMISSIONS.READ,
+    description: 'Read merchant payment transactions and summaries',
   },
 ] as const satisfies readonly ApplicationPermissionCatalogEntry[];
 
