@@ -27,6 +27,7 @@ import {
   InsufficientAvailableStockError,
   InsufficientSellableInventoryError,
   InventoryReservedByHoldsError,
+  OrderManagedStockHoldError,
   StockHoldIdempotencyConflictError,
   StockHoldNotActiveError,
   type StockHoldRecord,
@@ -211,6 +212,9 @@ export class InventoryService {
       if (hold === null) throw new NotFoundException('Not found.');
       return this.mapHold(hold, now);
     } catch (error: unknown) {
+      if (error instanceof OrderManagedStockHoldError) {
+        throw new ConflictException('This stock hold is managed by an order.');
+      }
       if (error instanceof StockHoldNotActiveError) {
         throw new UnprocessableEntityException(
           'Only active stock holds may be updated.',
@@ -226,14 +230,21 @@ export class InventoryService {
     holdId: string,
   ) {
     const now = new Date();
-    const hold = await this.store.releaseStockHold(
-      context.merchant.id,
-      variantId,
-      holdId,
-      now,
-    );
-    if (hold === null) throw new NotFoundException('Not found.');
-    return this.mapHold(hold, now);
+    try {
+      const hold = await this.store.releaseStockHold(
+        context.merchant.id,
+        variantId,
+        holdId,
+        now,
+      );
+      if (hold === null) throw new NotFoundException('Not found.');
+      return this.mapHold(hold, now);
+    } catch (error: unknown) {
+      if (error instanceof OrderManagedStockHoldError) {
+        throw new ConflictException('This stock hold is managed by an order.');
+      }
+      throw error;
+    }
   }
 
   private mapInventory(record: InventoryIdentityRecord) {

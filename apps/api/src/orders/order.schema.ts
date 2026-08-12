@@ -33,5 +33,21 @@ export const orderPatchSchema = z
 
 export const orderIdempotencyKeySchema = z.string().regex(/^[!-~]{1,128}$/);
 
+const confirmationExpirySchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) =>
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(
+        value,
+      ) && !Number.isNaN(Date.parse(value)),
+  )
+  .transform((value) => new Date(value).toISOString());
+
+export const confirmOrderSchema = z
+  .object({ expiresAt: confirmationExpirySchema })
+  .strict();
+
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type OrderPatchInput = z.infer<typeof orderPatchSchema>;
+export type ConfirmOrderInput = z.infer<typeof confirmOrderSchema>;

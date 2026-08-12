@@ -1551,3 +1551,18 @@
 9. Order creation uses Merchant-scoped visible-ASCII idempotency keys plus deterministic request hashes; neither is public API data.
 10. `orders.read` and `orders.manage` are exact independent grants and do not require Customer or Catalogue permissions for known references.
 11. DRAFT contents deliberately ignore current stock. B6.2 owns confirmation and StockHold coordination.
+
+# B6.2 confirmation decisions
+
+1. Confirmation is an Order command protected only by exact `orders.manage`; no Inventory permission or new key is introduced.
+2. One PostgreSQL transaction locks Order first, then AVAILABLE rows in ascending Variant-ID order, validates all capacity, creates every Hold, and commits CONFIRMED metadata.
+3. Generic Hold creation and Order confirmation share one transaction-aware allocation primitive and effective-active-Hold definition.
+4. Each confirmation Hold has an explicit nullable OrderItem association secured by a composite Merchant foreign key; polymorphic ownership is rejected.
+5. Confirmation never reprices, resnapshots, or revalidates current catalogue lifecycle or price.
+6. Merchant-scoped confirmation idempotency covers canonical Order ID and expiry; exact replay returns existing state and different logical commands conflict.
+7. Physical AVAILABLE and InventoryLedgerEntry never change through Hold creation, release, or expiry.
+8. Generic Inventory reads conceal Order linkage, and generic release/expiry update is forbidden for Order-managed Holds.
+9. Order reads expose a bounded effective Hold summary under `orders.read` without requiring `inventory.read`.
+10. Hold expiry is independent from Order status and triggers no cancellation, reopening, renewal, or re-reservation.
+11. CONFIRMED may transition to CANCELLED, releasing active Holds and persisting due Holds as EXPIRED; CONFIRMED may not be abandoned.
+12. FULFILLED, COMPLETED, consumption, Payment, Delivery, receipts, scheduler, audit, and outbox remain deferred.

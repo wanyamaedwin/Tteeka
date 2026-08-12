@@ -25,6 +25,7 @@ import { ORDER_PERMISSIONS } from './order-permissions';
 import { orderListQuerySchema } from './order-query.schema';
 import {
   createOrderSchema,
+  confirmOrderSchema,
   orderIdempotencyKeySchema,
   orderIdSchema,
   orderPatchSchema,
@@ -160,6 +161,30 @@ export class OrderController {
       context,
       this.parseId(orderId),
       'CANCELLED',
+    );
+    noStore(response);
+    return result;
+  }
+
+  @Post(':orderId/confirm')
+  @RequirePermission(ORDER_PERMISSIONS.MANAGE)
+  public async confirm(
+    @CurrentMerchantContext() context: ResolvedMerchantContext,
+    @Param('orderId') orderId: string,
+    @Headers('idempotency-key') key: unknown,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: OrderHttpResponse,
+  ) {
+    const parsedKey = orderIdempotencyKeySchema.safeParse(key);
+    const parsed = confirmOrderSchema.safeParse(body);
+    if (!parsedKey.success || !parsed.success) {
+      throw new BadRequestException('Invalid Order confirmation request.');
+    }
+    const result = await this.service.confirm(
+      context,
+      this.parseId(orderId),
+      parsed.data,
+      parsedKey.data,
     );
     noStore(response);
     return result;

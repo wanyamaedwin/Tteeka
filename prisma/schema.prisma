@@ -253,6 +253,10 @@ model Order {
   updatedAt                    DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
   abandonedAt                  DateTime?   @map("abandoned_at") @db.Timestamptz(3)
   cancelledAt                  DateTime?   @map("cancelled_at") @db.Timestamptz(3)
+  confirmedAt                  DateTime?   @map("confirmed_at") @db.Timestamptz(3)
+  stockHoldExpiresAt           DateTime?   @map("stock_hold_expires_at") @db.Timestamptz(3)
+  confirmationIdempotencyKey   String?     @map("confirmation_idempotency_key") @db.VarChar(128)
+  confirmationRequestHash      String?     @map("confirmation_request_hash") @db.Char(64)
 
   merchant         Merchant          @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "orders_merchant_id_fkey")
   customer         Customer          @relation(fields: [merchantId, customerId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "orders_merchant_id_customer_id_fkey")
@@ -261,6 +265,7 @@ model Order {
 
   @@unique([merchantId, id], map: "orders_merchant_id_id_key")
   @@unique([merchantId, idempotencyKey], map: "orders_merchant_id_idempotency_key_key")
+  @@unique([merchantId, confirmationIdempotencyKey], map: "orders_merchant_confirmation_idempotency_key_key")
   @@index([merchantId, status, createdAt, id], map: "orders_merchant_status_created_id_idx")
   @@index([merchantId, customerId, createdAt, id], map: "orders_merchant_customer_created_id_idx")
   @@map("orders")
@@ -282,9 +287,10 @@ model OrderItem {
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  merchant Merchant       @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "order_items_merchant_id_fkey")
-  order    Order          @relation(fields: [merchantId, orderId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "order_items_merchant_id_order_id_fkey")
-  variant  ProductVariant @relation(fields: [merchantId, variantId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "order_items_merchant_id_variant_id_fkey")
+  merchant   Merchant       @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "order_items_merchant_id_fkey")
+  order      Order          @relation(fields: [merchantId, orderId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "order_items_merchant_id_order_id_fkey")
+  variant    ProductVariant @relation(fields: [merchantId, variantId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "order_items_merchant_id_variant_id_fkey")
+  stockHolds StockHold[]
 
   @@unique([merchantId, id], map: "order_items_merchant_id_id_key")
   @@unique([merchantId, orderId, variantId], map: "order_items_merchant_order_variant_key")
@@ -336,6 +342,7 @@ model StockHold {
   id             String          @id(map: "stock_holds_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
   merchantId     String          @map("merchant_id") @db.Uuid
   variantId      String          @map("variant_id") @db.Uuid
+  orderItemId    String?         @map("order_item_id") @db.Uuid
   quantity       BigInt
   status         StockHoldStatus @default(ACTIVE)
   expiresAt      DateTime        @map("expires_at") @db.Timestamptz(3)
@@ -346,12 +353,14 @@ model StockHold {
   createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  merchant Merchant       @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "stock_holds_merchant_id_fkey")
-  variant  ProductVariant @relation(fields: [merchantId, variantId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "stock_holds_merchant_id_variant_id_fkey")
+  merchant  Merchant       @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "stock_holds_merchant_id_fkey")
+  variant   ProductVariant @relation(fields: [merchantId, variantId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "stock_holds_merchant_id_variant_id_fkey")
+  orderItem OrderItem?     @relation(fields: [merchantId, orderItemId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "stock_holds_merchant_id_order_item_id_fkey")
 
   @@unique([merchantId, id], map: "stock_holds_merchant_id_id_key")
   @@unique([merchantId, idempotencyKey], map: "stock_holds_merchant_id_idempotency_key_key")
   @@index([merchantId, variantId, status, expiresAt], map: "stock_holds_merchant_variant_status_expiry_idx")
+  @@index([merchantId, orderItemId], map: "stock_holds_merchant_order_item_idx")
   @@index([status, expiresAt], map: "stock_holds_status_expiry_idx")
   @@map("stock_holds")
 }

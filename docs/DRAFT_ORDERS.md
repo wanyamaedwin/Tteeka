@@ -45,6 +45,8 @@ The list supports `q` over Customer snapshots, exact Customer/status filters, ti
 
 ## Tenant and future-domain boundary
 
+B6.2 now adds atomic `DRAFT -> CONFIRMED`, `CONFIRMED -> CANCELLED`, one Order-owned StockHold per OrderItem, and a ninth Orders route. Confirmation preserves every B6.1 commercial snapshot and changes neither physical inventory nor the ledger. See [ORDER_CONFIRMATION_STOCK_HOLDS.md](ORDER_CONFIRMATION_STOCK_HOLDS.md).
+
 Orders, items, Customer/location references, and Variant references all use Merchant-scoped queries and restrictive composite foreign keys. Responses omit idempotency data, request hashes, current domain objects, stock, holds, authentication data, and future operational state.
 
 B6.1 creates no StockHold, reservation, inventory movement, sale, confirmation endpoint, Payment/COD state, delivery job/zone/fee/rider, receipt, discount, tax, fulfilment type, friendly Order number, analytics, audit/outbox, or Redis authority. B6.2 will deliberately coordinate Order confirmation with inventory holds.

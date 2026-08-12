@@ -11,6 +11,7 @@ import cookieParser from 'cookie-parser';
 import { syncApplicationPermissions } from '../access-management/permission-sync';
 import { AppModule } from '../app.module';
 import { SESSION_COOKIE_NAME } from '../auth/session-cookie';
+import { INVENTORY_PERMISSIONS } from '../inventory/inventory-permissions';
 import { ORDER_PERMISSIONS } from './order-permissions';
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -26,6 +27,10 @@ async function actor(keys: readonly string[]) {
   const merchant = await client.merchant.create({
     data: { displayName: `${PREFIX} ${randomUUID()}` },
   });
+  return { merchant, ...(await member(merchant.id, keys)) };
+}
+
+async function member(merchantId: string, keys: readonly string[]) {
   const user = await client.user.create({
     data: {
       displayName: `${PREFIX} User ${randomUUID()}`,
@@ -33,14 +38,14 @@ async function actor(keys: readonly string[]) {
     },
   });
   const membership = await client.merchantMembership.create({
-    data: { merchantId: merchant.id, userId: user.id },
+    data: { merchantId, userId: user.id },
   });
   const role = await client.role.create({
-    data: { merchantId: merchant.id, name: `Role ${randomUUID()}` },
+    data: { merchantId, name: `Role ${randomUUID()}` },
   });
   await client.membershipRole.create({
     data: {
-      merchantId: merchant.id,
+      merchantId,
       membershipId: membership.id,
       roleId: role.id,
     },
@@ -51,7 +56,7 @@ async function actor(keys: readonly string[]) {
   });
   await client.rolePermission.createMany({
     data: permissions.map(({ id }) => ({
-      merchantId: merchant.id,
+      merchantId,
       roleId: role.id,
       permissionId: id,
     })),
@@ -64,7 +69,7 @@ async function actor(keys: readonly string[]) {
       expiresAt: new Date(Date.now() + 3_600_000),
     },
   });
-  return { merchant, user, token: token.token };
+  return { user, token: token.token };
 }
 
 async function customer(merchantId: string, name = 'Sarah') {
@@ -145,6 +150,15 @@ async function cleanup() {
   });
   const merchantIds = merchants.map(({ id }) => id);
   const userIds = users.map(({ id }) => id);
+  await client.stockHold.deleteMany({
+    where: { merchantId: { in: merchantIds } },
+  });
+  await client.inventoryLedgerEntry.deleteMany({
+    where: { merchantId: { in: merchantIds } },
+  });
+  await client.inventoryBalance.deleteMany({
+    where: { merchantId: { in: merchantIds } },
+  });
   await client.orderItem.deleteMany({
     where: { merchantId: { in: merchantIds } },
   });
@@ -357,7 +371,247 @@ void test('HTTP create replay, conflict, and concurrent exact retry are database
   );
 });
 
-void test('all eight routes enforce authentication, exact permissions, membership, and tenant concealment', async () => {
+void test('HTTP confirmation needs only orders.manage, redacts metadata, exposes safe Hold summaries, and coordinates cancellation', async () => {
+  const manager = await actor([ORDER_PERMISSIONS.MANAGE]);
+  const reader = await member(manager.merchant.id, [ORDER_PERMISSIONS.READ]);
+  const inventoryReader = await member(manager.merchant.id, [
+    INVENTORY_PERMISSIONS.READ,
+    INVENTORY_PERMISSIONS.MANAGE,
+  ]);
+  const c = await customer(manager.merchant.id);
+  const item = await variant(manager.merchant.id, 'Confirmation');
+  await client.inventoryBalance.create({
+    data: {
+      merchantId: manager.merchant.id,
+      variantId: item.variant.id,
+      state: 'AVAILABLE',
+      quantity: 10n,
+    },
+  });
+  const created = await call(manager.merchant.id, manager.token, '', {
+    method: 'POST',
+    idempotencyKey: 'Confirmation-Create',
+    body: { customerId: c.id },
+  });
+  const order = (await created.json()) as { id: string };
+  assert.equal(
+    (
+      await call(manager.merchant.id, manager.token, `/${order.id}/items`, {
+        method: 'PUT',
+        body: { items: [{ variantId: item.variant.id, quantity: '4' }] },
+      })
+    ).status,
+    200,
+  );
+  const expiry = new Date(Date.now() + 3_600_000).toISOString();
+  assert.equal(
+    (
+      await call(manager.merchant.id, manager.token, `/${order.id}/confirm`, {
+        method: 'POST',
+        body: { expiresAt: expiry },
+      })
+    ).status,
+    400,
+  );
+  const confirmOptions = {
+    method: 'POST',
+    idempotencyKey: 'Confirmation-Key',
+    body: { expiresAt: expiry },
+  };
+  const confirmedResponse = await call(
+    manager.merchant.id,
+    manager.token,
+    `/${order.id}/confirm`,
+    confirmOptions,
+  );
+  assert.equal(confirmedResponse.status, 201);
+  const confirmed = (await confirmedResponse.json()) as Record<string, unknown>;
+  assert.deepEqual(
+    [confirmed.status, confirmed.stockHoldExpiresAt],
+    ['CONFIRMED', expiry],
+  );
+  for (const privateField of [
+    'confirmationIdempotencyKey',
+    'confirmationRequestHash',
+    'idempotencyKey',
+    'requestHash',
+  ]) {
+    assert.equal(privateField in confirmed, false);
+  }
+  assert.equal(
+    (
+      await call(
+        manager.merchant.id,
+        manager.token,
+        `/${order.id}/confirm`,
+        confirmOptions,
+      )
+    ).status,
+    201,
+  );
+  assert.equal(
+    (
+      await call(manager.merchant.id, manager.token, `/${order.id}/confirm`, {
+        method: 'POST',
+        idempotencyKey: 'Confirmation-Key',
+        body: { expiresAt: new Date(Date.now() + 7_200_000).toISOString() },
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (await call(manager.merchant.id, manager.token, `/${order.id}/items`))
+      .status,
+    403,
+  );
+  const itemsResponse = await call(
+    manager.merchant.id,
+    reader.token,
+    `/${order.id}/items`,
+  );
+  assert.equal(itemsResponse.status, 200);
+  const items = (await itemsResponse.json()) as {
+    items: { stockHold: Record<string, unknown> }[];
+  };
+  const hold = items.items[0]?.stockHold;
+  assert.deepEqual(
+    [hold?.quantity, hold?.status, hold?.expiresAt],
+    ['4', 'ACTIVE', expiry],
+  );
+  for (const privateField of ['idempotencyKey', 'requestHash', 'orderItemId']) {
+    assert.equal(privateField in (hold ?? {}), false);
+  }
+  const holdId = hold?.id as string;
+  const inventoryBase = `${baseUrl}/api/v1/merchants/${manager.merchant.id}/inventory/${item.variant.id}/holds/${holdId}`;
+  assert.equal(
+    (
+      await fetch(inventoryBase, {
+        headers: { cookie: `${SESSION_COOKIE_NAME}=${reader.token}` },
+      })
+    ).status,
+    403,
+  );
+  const genericRead = await fetch(inventoryBase, {
+    headers: { cookie: `${SESSION_COOKIE_NAME}=${inventoryReader.token}` },
+  });
+  assert.equal(genericRead.status, 200);
+  const genericBody = (await genericRead.json()) as Record<string, unknown>;
+  assert.equal('orderItemId' in genericBody, false);
+  assert.equal('orderId' in genericBody, false);
+  assert.equal(
+    (
+      await fetch(`${inventoryBase}/release`, {
+        method: 'POST',
+        headers: {
+          cookie: `${SESSION_COOKIE_NAME}=${inventoryReader.token}`,
+        },
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await fetch(`${inventoryBase}/expiry`, {
+        method: 'PUT',
+        headers: {
+          cookie: `${SESSION_COOKIE_NAME}=${inventoryReader.token}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          expiresAt: new Date(Date.now() + 7_200_000).toISOString(),
+        }),
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await call(manager.merchant.id, manager.token, `/${order.id}/cancel`, {
+        method: 'POST',
+      })
+    ).status,
+    201,
+  );
+  const cancelledItems = (await (
+    await call(manager.merchant.id, reader.token, `/${order.id}/items`)
+  ).json()) as { items: { stockHold: { status: string } }[] };
+  assert.equal(cancelledItems.items[0]?.stockHold.status, 'RELEASED');
+  assert.equal(
+    (
+      await client.inventoryBalance.findUniqueOrThrow({
+        where: {
+          merchantId_variantId_state: {
+            merchantId: manager.merchant.id,
+            variantId: item.variant.id,
+            state: 'AVAILABLE',
+          },
+        },
+      })
+    ).quantity,
+    10n,
+  );
+  assert.equal(
+    await client.inventoryLedgerEntry.count({
+      where: { merchantId: manager.merchant.id },
+    }),
+    0,
+  );
+});
+
+void test('Order read reports due active Order Holds as effectively EXPIRED without changing Order status', async () => {
+  const owner = await actor(Object.values(ORDER_PERMISSIONS));
+  const c = await customer(owner.merchant.id);
+  const item = await variant(owner.merchant.id, 'Effective Expiry');
+  await client.inventoryBalance.create({
+    data: {
+      merchantId: owner.merchant.id,
+      variantId: item.variant.id,
+      state: 'AVAILABLE',
+      quantity: 5n,
+    },
+  });
+  const created = await call(owner.merchant.id, owner.token, '', {
+    method: 'POST',
+    idempotencyKey: 'Expiry-Create',
+    body: { customerId: c.id },
+  });
+  const order = (await created.json()) as { id: string };
+  await call(owner.merchant.id, owner.token, `/${order.id}/items`, {
+    method: 'PUT',
+    body: { items: [{ variantId: item.variant.id, quantity: '5' }] },
+  });
+  await call(owner.merchant.id, owner.token, `/${order.id}/confirm`, {
+    method: 'POST',
+    idempotencyKey: 'Expiry-Confirm',
+    body: { expiresAt: new Date(Date.now() + 3_600_000).toISOString() },
+  });
+  const hold = await client.stockHold.findFirstOrThrow({
+    where: { merchantId: owner.merchant.id, orderItem: { orderId: order.id } },
+  });
+  const dueAt = new Date(Date.now() - 1_000);
+  await client.stockHold.update({
+    where: { id: hold.id },
+    data: { expiresAt: dueAt },
+  });
+  const response = await call(
+    owner.merchant.id,
+    owner.token,
+    `/${order.id}/items`,
+  );
+  const body = (await response.json()) as {
+    items: { stockHold: { status: string; expiredAt: string } }[];
+  };
+  assert.deepEqual(
+    [body.items[0]?.stockHold.status, body.items[0]?.stockHold.expiredAt],
+    ['EXPIRED', dueAt.toISOString()],
+  );
+  const detail = (await (
+    await call(owner.merchant.id, owner.token, `/${order.id}`)
+  ).json()) as { status: string };
+  assert.equal(detail.status, 'CONFIRMED');
+});
+
+void test('all nine routes enforce authentication, exact permissions, membership, and tenant concealment', async () => {
   const [owner, manager, reader, foreign] = await Promise.all([
     actor(Object.values(ORDER_PERMISSIONS)),
     actor([ORDER_PERMISSIONS.MANAGE]),
@@ -401,6 +655,12 @@ void test('all eight routes enforce authentication, exact permissions, membershi
     },
     { path: `/${order.id}/abandon`, method: 'POST' },
     { path: `/${order.id}/cancel`, method: 'POST' },
+    {
+      path: `/${order.id}/confirm`,
+      method: 'POST',
+      idempotencyKey: randomUUID(),
+      body: { expiresAt: new Date(Date.now() + 3_600_000).toISOString() },
+    },
     { path: `/${order.id}/items`, method: 'GET' },
   ];
   for (const route of routes) {
@@ -433,6 +693,23 @@ void test('all eight routes enforce authentication, exact permissions, membershi
   const foreignOrder = (await foreignCreate.json()) as { id: string };
   assert.equal(
     (await call(owner.merchant.id, owner.token, `/${foreignOrder.id}`)).status,
+    404,
+  );
+  assert.equal(
+    (
+      await call(
+        owner.merchant.id,
+        owner.token,
+        `/${foreignOrder.id}/confirm`,
+        {
+          method: 'POST',
+          idempotencyKey: 'Foreign-Confirmation',
+          body: {
+            expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+          },
+        },
+      )
+    ).status,
     404,
   );
   assert.equal(

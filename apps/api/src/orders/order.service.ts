@@ -8,16 +8,26 @@ import {
 
 import type { ResolvedMerchantContext } from '../authorization/merchant-context';
 import type { ReplaceOrderItemsInput } from './order-items.schema';
-import { orderCreateRequestHash } from './order-idempotency';
+import {
+  orderConfirmationRequestHash,
+  orderCreateRequestHash,
+} from './order-idempotency';
 import type { OrderListQuery } from './order-query.schema';
-import type { CreateOrderInput, OrderPatchInput } from './order.schema';
+import type {
+  ConfirmOrderInput,
+  CreateOrderInput,
+  OrderPatchInput,
+} from './order.schema';
 import {
   ORDER_STORE,
   OrderArithmeticOverflowError,
   OrderCurrencyMismatchError,
+  OrderConfirmationConflictError,
+  OrderEmptyError,
   OrderIdempotencyConflictError,
   OrderInvalidTransitionError,
   OrderItemIneligibleError,
+  OrderInsufficientSellableInventoryError,
   type OrderItemRecord,
   OrderNotEditableError,
   type OrderRecord,
@@ -130,6 +140,34 @@ export class OrderService {
     }
   }
 
+  public async confirm(
+    context: ResolvedMerchantContext,
+    orderId: string,
+    input: ConfirmOrderInput,
+    idempotencyKey: string,
+  ) {
+    const now = new Date();
+    const expiresAtDate = new Date(input.expiresAt);
+    if (expiresAtDate <= now) {
+      throw new UnprocessableEntityException(
+        'Hold expiry must be in the future.',
+      );
+    }
+    try {
+      const order = await this.store.confirm(context.merchant.id, orderId, {
+        ...input,
+        expiresAtDate,
+        idempotencyKey,
+        requestHash: orderConfirmationRequestHash(orderId, input),
+        now,
+      });
+      if (order === null) throw new NotFoundException('Not found.');
+      return this.mapOrder(order);
+    } catch (error: unknown) {
+      this.mapError(error);
+    }
+  }
+
   private mapOrderSummary(order: OrderRecord) {
     return {
       id: order.id,
@@ -141,6 +179,8 @@ export class OrderService {
       subtotal: order.subtotal.toString(),
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
+      confirmedAt: order.confirmedAt?.toISOString() ?? null,
+      stockHoldExpiresAt: order.stockHoldExpiresAt?.toISOString() ?? null,
     };
   }
 
@@ -164,10 +204,15 @@ export class OrderService {
       updatedAt: order.updatedAt.toISOString(),
       abandonedAt: order.abandonedAt?.toISOString() ?? null,
       cancelledAt: order.cancelledAt?.toISOString() ?? null,
+      confirmedAt: order.confirmedAt?.toISOString() ?? null,
+      stockHoldExpiresAt: order.stockHoldExpiresAt?.toISOString() ?? null,
     };
   }
 
   private mapItem(item: OrderItemRecord) {
+    const stockHold = item.stockHolds[0];
+    const effectivelyExpired =
+      stockHold?.status === 'ACTIVE' && stockHold.expiresAt <= new Date();
     return {
       id: item.id,
       variantId: item.variantId,
@@ -181,12 +226,35 @@ export class OrderService {
       lineTotal: item.lineTotal.toString(),
       createdAt: item.createdAt.toISOString(),
       updatedAt: item.updatedAt.toISOString(),
+      stockHold:
+        stockHold === undefined
+          ? null
+          : {
+              id: stockHold.id,
+              quantity: stockHold.quantity.toString(),
+              status: effectivelyExpired ? 'EXPIRED' : stockHold.status,
+              expiresAt: stockHold.expiresAt.toISOString(),
+              releasedAt: stockHold.releasedAt?.toISOString() ?? null,
+              expiredAt:
+                stockHold.expiredAt?.toISOString() ??
+                (effectivelyExpired ? stockHold.expiresAt.toISOString() : null),
+            },
     };
   }
 
   private mapError(error: unknown): never {
     if (error instanceof OrderIdempotencyConflictError)
       throw new ConflictException('Idempotency key already used.');
+    if (error instanceof OrderConfirmationConflictError)
+      throw new ConflictException('Order confirmation conflict.');
+    if (error instanceof OrderEmptyError)
+      throw new UnprocessableEntityException(
+        'An order must contain at least one item before it can be confirmed.',
+      );
+    if (error instanceof OrderInsufficientSellableInventoryError)
+      throw new UnprocessableEntityException(
+        'Insufficient sellable inventory to confirm this order.',
+      );
     if (
       error instanceof OrderNotEditableError ||
       error instanceof OrderInvalidTransitionError

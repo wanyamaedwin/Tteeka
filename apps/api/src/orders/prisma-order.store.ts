@@ -1,16 +1,25 @@
+import { randomUUID } from 'node:crypto';
+
 import { Inject, Injectable } from '@nestjs/common';
 
 import { DatabaseService } from '../database/database.service';
+import { allocateStockHoldsInTransaction } from '../inventory/stock-hold-allocation';
+import { stockHoldRequestHash } from '../inventory/stock-hold-idempotency';
+import { InsufficientSellableInventoryError } from '../inventory/inventory.store';
 import type { ReplaceOrderItemsInput } from './order-items.schema';
 import type { OrderListQuery } from './order-query.schema';
 import type { OrderPatchInput } from './order.schema';
 import {
   type CreateOrderCommand,
+  type ConfirmOrderCommand,
   OrderArithmeticOverflowError,
   OrderCurrencyMismatchError,
+  OrderConfirmationConflictError,
+  OrderEmptyError,
   OrderIdempotencyConflictError,
   OrderInvalidTransitionError,
   OrderItemIneligibleError,
+  OrderInsufficientSellableInventoryError,
   type OrderItemRecord,
   type OrderListResult,
   OrderNotEditableError,
@@ -41,6 +50,10 @@ const orderSelect = {
   updatedAt: true,
   abandonedAt: true,
   cancelledAt: true,
+  confirmedAt: true,
+  stockHoldExpiresAt: true,
+  confirmationIdempotencyKey: true,
+  confirmationRequestHash: true,
 } as const;
 
 const itemSelect = {
@@ -56,6 +69,18 @@ const itemSelect = {
   lineTotal: true,
   createdAt: true,
   updatedAt: true,
+  stockHolds: {
+    select: {
+      id: true,
+      quantity: true,
+      status: true,
+      expiresAt: true,
+      releasedAt: true,
+      expiredAt: true,
+    },
+    orderBy: { createdAt: 'asc' as const },
+    take: 1,
+  },
 } as const;
 
 function isUniqueViolation(error: unknown): boolean {
@@ -462,6 +487,89 @@ export class PrismaOrderStore implements OrderStore {
     });
   }
 
+  public async confirm(
+    merchantId: string,
+    orderId: string,
+    command: ConfirmOrderCommand,
+  ): Promise<OrderRecord | null> {
+    try {
+      return await this.database.client.$transaction(async (transaction) => {
+        const locked = await transaction.$queryRaw<readonly { id: string }[]>`
+          SELECT "id" FROM "orders"
+          WHERE "merchant_id" = ${merchantId}::uuid AND "id" = ${orderId}::uuid
+          FOR UPDATE`;
+        if (locked.length === 0) return null;
+        const current = await transaction.order.findUniqueOrThrow({
+          where: { merchantId_id: { merchantId, id: orderId } },
+          select: orderSelect,
+        });
+        const keyOwner = await transaction.order.findUnique({
+          where: {
+            merchantId_confirmationIdempotencyKey: {
+              merchantId,
+              confirmationIdempotencyKey: command.idempotencyKey,
+            },
+          },
+          select: orderSelect,
+        });
+        if (keyOwner !== null && keyOwner.id !== orderId) {
+          throw new OrderConfirmationConflictError();
+        }
+        if (current.status === 'CONFIRMED') {
+          if (
+            current.confirmationIdempotencyKey === command.idempotencyKey &&
+            current.confirmationRequestHash === command.requestHash
+          ) {
+            return current;
+          }
+          throw new OrderConfirmationConflictError();
+        }
+        if (current.status !== 'DRAFT') throw new OrderInvalidTransitionError();
+
+        const items = await transaction.orderItem.findMany({
+          where: { merchantId, orderId },
+          select: itemSelect,
+          orderBy: [{ variantId: 'asc' }, { id: 'asc' }],
+        });
+        if (items.length === 0) throw new OrderEmptyError();
+        const expiresAt = command.expiresAtDate.toISOString();
+        await allocateStockHoldsInTransaction(
+          transaction,
+          merchantId,
+          items.map((item) => ({
+            variantId: item.variantId,
+            orderItemId: item.id,
+            quantity: item.quantity,
+            expiresAt: command.expiresAtDate,
+            idempotencyKey: `order-${randomUUID()}`,
+            requestHash: stockHoldRequestHash(item.variantId, {
+              quantity: item.quantity.toString(),
+              expiresAt,
+            }),
+          })),
+          command.now,
+        );
+        return transaction.order.update({
+          where: { merchantId_id: { merchantId, id: orderId } },
+          data: {
+            status: 'CONFIRMED',
+            confirmedAt: command.now,
+            stockHoldExpiresAt: command.expiresAtDate,
+            confirmationIdempotencyKey: command.idempotencyKey,
+            confirmationRequestHash: command.requestHash,
+          },
+          select: orderSelect,
+        });
+      });
+    } catch (error: unknown) {
+      if (error instanceof InsufficientSellableInventoryError) {
+        throw new OrderInsufficientSellableInventoryError();
+      }
+      if (isUniqueViolation(error)) throw new OrderConfirmationConflictError();
+      throw error;
+    }
+  }
+
   public transition(
     merchantId: string,
     orderId: string,
@@ -476,8 +584,43 @@ export class PrismaOrderStore implements OrderStore {
         select: orderSelect,
       });
       if (current.status === target) return current;
-      if (current.status !== 'DRAFT') throw new OrderInvalidTransitionError();
+      if (
+        current.status !== 'DRAFT' &&
+        !(target === 'CANCELLED' && current.status === 'CONFIRMED')
+      ) {
+        throw new OrderInvalidTransitionError();
+      }
       const now = new Date();
+      if (target === 'CANCELLED' && current.status === 'CONFIRMED') {
+        await transaction.$queryRaw<readonly { id: string }[]>`
+          SELECT h."id" FROM "stock_holds" h
+          INNER JOIN "order_items" oi
+            ON oi."merchant_id" = h."merchant_id"
+            AND oi."id" = h."order_item_id"
+          WHERE h."merchant_id" = ${merchantId}::uuid
+            AND oi."order_id" = ${orderId}::uuid
+          ORDER BY h."id"
+          FOR UPDATE OF h`;
+        const holds = await transaction.stockHold.findMany({
+          where: { merchantId, orderItem: { orderId } },
+          select: {
+            id: true,
+            status: true,
+            expiresAt: true,
+          },
+          orderBy: { id: 'asc' },
+        });
+        for (const hold of holds) {
+          if (hold.status !== 'ACTIVE') continue;
+          const due = hold.expiresAt <= now;
+          await transaction.stockHold.update({
+            where: { id: hold.id },
+            data: due
+              ? { status: 'EXPIRED', expiredAt: hold.expiresAt }
+              : { status: 'RELEASED', releasedAt: now },
+          });
+        }
+      }
       return transaction.order.update({
         where: { merchantId_id: { merchantId, id: orderId } },
         data:

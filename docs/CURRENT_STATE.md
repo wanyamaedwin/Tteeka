@@ -366,3 +366,11 @@ B6.1 adds the central Merchant-owned Order aggregate and OrderItems in the tenth
 The complete frozen status enum is DRAFT, CONFIRMED, FULFILLED, COMPLETED, ABANDONED, and CANCELLED, while B6.1 implements only DRAFT creation plus idempotent abandon/cancel commands. Eight guarded routes bring production to 56 routes. Exact independent `orders.read` and `orders.manage` grants bring the explicit catalog to 17 keys.
 
 PostgreSQL row locks serialize DRAFT edits and terminal transitions. B6.1 adds no confirmation, StockHold linkage, reservation, inventory movement, Payment/COD, delivery operation, discount/tax, friendly order number, or Redis cache. See [DRAFT_ORDERS.md](DRAFT_ORDERS.md).
+
+# B6.2 — Order confirmation and StockHold coordination
+
+B6.2 adds the eleventh migration and one `orders.manage` confirmation route, bringing production to 57 routes while the explicit Permission catalogue remains 17 keys. Confirmation atomically moves a nonempty Order from DRAFT to CONFIRMED and creates exactly one tenant-safe OrderItem-owned StockHold per line under deterministic PostgreSQL row locks.
+
+The command is Merchant-scoped idempotent, all-or-nothing, snapshot-preserving, catalogue-lifecycle independent, and shares Inventory's AVAILABLE-row capacity authority. It changes neither physical InventoryBalance nor InventoryLedgerEntry. Order reads expose safe effective Hold summaries through `orders.read`; generic Inventory APIs conceal Order linkage and cannot independently release or reschedule Order-managed Holds.
+
+CONFIRMED Orders may transition to CANCELLED, atomically releasing active Holds and expiring due Holds. Hold expiry never changes Order status and causes no automatic re-reservation. Fulfilment, completion, payment, delivery, consumption, receipts, scheduling, audit, and outbox remain absent. See [ORDER_CONFIRMATION_STOCK_HOLDS.md](ORDER_CONFIRMATION_STOCK_HOLDS.md).

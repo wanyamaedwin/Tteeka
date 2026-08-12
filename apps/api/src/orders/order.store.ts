@@ -1,6 +1,10 @@
 import type { ReplaceOrderItemsInput } from './order-items.schema';
 import type { OrderListQuery } from './order-query.schema';
-import type { CreateOrderInput, OrderPatchInput } from './order.schema';
+import type {
+  ConfirmOrderInput,
+  CreateOrderInput,
+  OrderPatchInput,
+} from './order.schema';
 
 export const ORDER_STORE = Symbol('ORDER_STORE');
 
@@ -27,6 +31,19 @@ export interface OrderRecord {
   readonly updatedAt: Date;
   readonly abandonedAt: Date | null;
   readonly cancelledAt: Date | null;
+  readonly confirmedAt: Date | null;
+  readonly stockHoldExpiresAt: Date | null;
+  readonly confirmationIdempotencyKey: string | null;
+  readonly confirmationRequestHash: string | null;
+}
+
+export interface OrderItemStockHoldRecord {
+  readonly id: string;
+  readonly quantity: bigint;
+  readonly status: 'ACTIVE' | 'RELEASED' | 'EXPIRED';
+  readonly expiresAt: Date;
+  readonly releasedAt: Date | null;
+  readonly expiredAt: Date | null;
 }
 
 export interface OrderItemRecord {
@@ -42,6 +59,7 @@ export interface OrderItemRecord {
   readonly lineTotal: bigint;
   readonly createdAt: Date;
   readonly updatedAt: Date;
+  readonly stockHolds: readonly OrderItemStockHoldRecord[];
 }
 
 export interface OrderListResult {
@@ -52,6 +70,13 @@ export interface OrderListResult {
 export interface CreateOrderCommand extends CreateOrderInput {
   readonly idempotencyKey: string;
   readonly requestHash: string;
+}
+
+export interface ConfirmOrderCommand extends ConfirmOrderInput {
+  readonly expiresAtDate: Date;
+  readonly idempotencyKey: string;
+  readonly requestHash: string;
+  readonly now: Date;
 }
 
 export interface OrderStore {
@@ -72,6 +97,11 @@ export interface OrderStore {
     merchantId: string,
     orderId: string,
   ): Promise<{ order: OrderRecord; items: readonly OrderItemRecord[] } | null>;
+  confirm(
+    merchantId: string,
+    orderId: string,
+    command: ConfirmOrderCommand,
+  ): Promise<OrderRecord | null>;
   transition(
     merchantId: string,
     orderId: string,
@@ -86,3 +116,6 @@ export class OrderInvalidTransitionError extends Error {}
 export class OrderItemIneligibleError extends Error {}
 export class OrderCurrencyMismatchError extends Error {}
 export class OrderArithmeticOverflowError extends Error {}
+export class OrderConfirmationConflictError extends Error {}
+export class OrderEmptyError extends Error {}
+export class OrderInsufficientSellableInventoryError extends Error {}

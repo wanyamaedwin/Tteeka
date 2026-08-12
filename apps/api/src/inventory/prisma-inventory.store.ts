@@ -7,7 +7,6 @@ import type { StockHoldListQuery } from './stock-hold-query.schema';
 import {
   type ApplyMovementCommand,
   type CreateStockHoldCommand,
-  InsufficientSellableInventoryError,
   InventoryIdempotencyConflictError,
   type InventoryIdentityRecord,
   type InventoryLedgerResult,
@@ -15,6 +14,7 @@ import {
   type InventoryMovementRecord,
   type InventoryStore,
   InventoryReservedByHoldsError,
+  OrderManagedStockHoldError,
   InventoryVariantNotFoundError,
   InsufficientAvailableStockError,
   StockHoldIdempotencyConflictError,
@@ -22,6 +22,10 @@ import {
   type StockHoldRecord,
   StockHoldNotActiveError,
 } from './inventory.store';
+import {
+  allocateStockHoldsInTransaction,
+  lockAvailableInventoryBalancesInTransaction,
+} from './stock-hold-allocation';
 
 const movementSelect = {
   id: true,
@@ -56,6 +60,7 @@ const inventorySelect = {
 const holdSelect = {
   id: true,
   variantId: true,
+  orderItemId: true,
   quantity: true,
   status: true,
   expiresAt: true,
@@ -424,13 +429,11 @@ export class PrismaInventoryStore implements InventoryStore {
           select: { id: true },
         });
         if (variant === null) throw new InventoryVariantNotFoundError();
-        await transaction.$executeRaw`INSERT INTO "inventory_balances" ("merchant_id", "variant_id", "state", "quantity", "updated_at") VALUES (${merchantId}::uuid, ${command.variantId}::uuid, 'AVAILABLE'::inventory_state, 0, CURRENT_TIMESTAMP) ON CONFLICT ("merchant_id", "variant_id", "state") DO NOTHING`;
-        const balances = await transaction.$queryRaw<
-          readonly { quantity: bigint }[]
-        >`SELECT "quantity" FROM "inventory_balances" WHERE "merchant_id" = ${merchantId}::uuid AND "variant_id" = ${command.variantId}::uuid AND "state" = 'AVAILABLE'::inventory_state FOR UPDATE`;
-        const physical = balances[0]?.quantity;
-        if (physical === undefined)
-          throw new Error('Inventory balance missing.');
+        await lockAvailableInventoryBalancesInTransaction(
+          transaction,
+          merchantId,
+          [command.variantId],
+        );
         const serializedReplay = await transaction.stockHold.findUnique({
           where: {
             merchantId_idempotencyKey: {
@@ -443,26 +446,18 @@ export class PrismaInventoryStore implements InventoryStore {
         if (serializedReplay !== null) {
           return this.resolveHoldReplay(serializedReplay, command);
         }
-        const held = await transaction.stockHold.aggregate({
+        await allocateStockHoldsInTransaction(
+          transaction,
+          merchantId,
+          [command],
+          command.now,
+        );
+        return transaction.stockHold.findUniqueOrThrow({
           where: {
-            merchantId,
-            variantId: command.variantId,
-            status: 'ACTIVE',
-            expiresAt: { gt: command.now },
-          },
-          _sum: { quantity: true },
-        });
-        if (command.quantity > physical - (held._sum.quantity ?? 0n)) {
-          throw new InsufficientSellableInventoryError();
-        }
-        return transaction.stockHold.create({
-          data: {
-            merchantId,
-            variantId: command.variantId,
-            quantity: command.quantity,
-            expiresAt: command.expiresAt,
-            idempotencyKey: command.idempotencyKey,
-            requestHash: command.requestHash,
+            merchantId_idempotencyKey: {
+              merchantId,
+              idempotencyKey: command.idempotencyKey,
+            },
           },
           select: holdSelect,
         });
@@ -497,6 +492,7 @@ export class PrismaInventoryStore implements InventoryStore {
         where: { id: holdId },
         select: holdSelect,
       });
+      if (hold.orderItemId !== null) throw new OrderManagedStockHoldError();
       if (hold.status === 'RELEASED' || hold.status === 'EXPIRED') return hold;
       if (hold.expiresAt <= now) {
         return transaction.stockHold.update({
@@ -528,6 +524,7 @@ export class PrismaInventoryStore implements InventoryStore {
         where: { id: holdId },
         select: holdSelect,
       });
+      if (hold.orderItemId !== null) throw new OrderManagedStockHoldError();
       if (hold.status !== 'ACTIVE' || hold.expiresAt <= now) {
         throw new StockHoldNotActiveError();
       }

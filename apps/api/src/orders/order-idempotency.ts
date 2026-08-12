@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import type { CreateOrderInput } from './order.schema';
+import type { ConfirmOrderInput, CreateOrderInput } from './order.schema';
 
 export function orderCreateRequestHash(input: CreateOrderInput): string {
   return createHash('sha256')
@@ -10,5 +10,14 @@ export function orderCreateRequestHash(input: CreateOrderInput): string {
         deliveryLocationId: input.deliveryLocationId,
       }),
     )
+    .digest('hex');
+}
+
+export function orderConfirmationRequestHash(
+  orderId: string,
+  input: ConfirmOrderInput,
+): string {
+  return createHash('sha256')
+    .update(JSON.stringify({ orderId, expiresAt: input.expiresAt }))
     .digest('hex');
 }

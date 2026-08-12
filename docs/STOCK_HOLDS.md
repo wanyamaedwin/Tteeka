@@ -30,4 +30,6 @@ Expiry is effective at `expiresAt` even before persistence catches up: due ACTIV
 
 ## Deferred scope
 
+B6.2 Order confirmation creates StockHolds internally, one per OrderItem. Generic create cannot submit the internal association; generic reads hide it; generic release and expiry update conflict for Order-owned Holds. The expiry processor handles both generic and Order Holds and never mutates Order status. See [ORDER_CONFIRMATION_STOCK_HOLDS.md](ORDER_CONFIRMATION_STOCK_HOLDS.md).
+
 Order ownership, checkout, sale consumption, partial release, policy limits, warehouses/bins/transfers, fulfillment states, Redis caching, scheduling, notifications, audit/outbox, and generic B14 idempotency remain deferred.

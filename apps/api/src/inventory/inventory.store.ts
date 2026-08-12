@@ -70,12 +70,14 @@ export class InsufficientSellableInventoryError extends Error {}
 export class InventoryReservedByHoldsError extends Error {}
 export class StockHoldIdempotencyConflictError extends Error {}
 export class StockHoldNotActiveError extends Error {}
+export class OrderManagedStockHoldError extends Error {}
 
 export type StockHoldStatus = 'ACTIVE' | 'RELEASED' | 'EXPIRED';
 
 export interface StockHoldRecord {
   readonly id: string;
   readonly variantId: string;
+  readonly orderItemId: string | null;
   readonly quantity: bigint;
   readonly status: StockHoldStatus;
   readonly expiresAt: Date;
