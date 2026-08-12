@@ -11,6 +11,12 @@ import { inventoryRequestHash } from './inventory-idempotency';
 import type { InventoryLedgerQuery } from './inventory-ledger-query.schema';
 import type { InventoryMovementInput } from './inventory-movement.schema';
 import type { InventoryListQuery } from './inventory-query.schema';
+import { stockHoldRequestHash } from './stock-hold-idempotency';
+import type { StockHoldListQuery } from './stock-hold-query.schema';
+import type {
+  CreateStockHoldInput,
+  UpdateStockHoldExpiryInput,
+} from './stock-hold.schema';
 import {
   INVENTORY_STORE,
   InventoryIdempotencyConflictError,
@@ -19,6 +25,11 @@ import {
   type InventoryStore,
   InventoryVariantNotFoundError,
   InsufficientAvailableStockError,
+  InsufficientSellableInventoryError,
+  InventoryReservedByHoldsError,
+  StockHoldIdempotencyConflictError,
+  StockHoldNotActiveError,
+  type StockHoldRecord,
 } from './inventory.store';
 
 @Injectable()
@@ -91,6 +102,11 @@ export class InventoryService {
       if (error instanceof InsufficientAvailableStockError) {
         throw new UnprocessableEntityException('Insufficient available stock.');
       }
+      if (error instanceof InventoryReservedByHoldsError) {
+        throw new UnprocessableEntityException(
+          'Inventory is reserved by active stock holds.',
+        );
+      }
       if (error instanceof InventoryIdempotencyConflictError) {
         throw new ConflictException('Idempotency key conflict.');
       }
@@ -98,12 +114,156 @@ export class InventoryService {
     }
   }
 
+  public async listHolds(
+    context: ResolvedMerchantContext,
+    variantId: string,
+    query: StockHoldListQuery,
+  ) {
+    const now = new Date();
+    const result = await this.store.listStockHolds(
+      context.merchant.id,
+      variantId,
+      query,
+      now,
+    );
+    if (result === null) throw new NotFoundException('Not found.');
+    return {
+      holds: result.rows.map((hold) => this.mapHold(hold, now)),
+      pagination: this.pagination(query, result.total),
+    };
+  }
+
+  public async holdDetail(
+    context: ResolvedMerchantContext,
+    variantId: string,
+    holdId: string,
+  ) {
+    const now = new Date();
+    const hold = await this.store.getStockHold(
+      context.merchant.id,
+      variantId,
+      holdId,
+    );
+    if (hold === null) throw new NotFoundException('Not found.');
+    return this.mapHold(hold, now);
+  }
+
+  public async createHold(
+    context: ResolvedMerchantContext,
+    variantId: string,
+    input: CreateStockHoldInput,
+    idempotencyKey: string,
+  ) {
+    const now = new Date();
+    const expiresAt = new Date(input.expiresAt);
+    if (expiresAt <= now) {
+      throw new UnprocessableEntityException(
+        'Hold expiry must be in the future.',
+      );
+    }
+    try {
+      const hold = await this.store.createStockHold(context.merchant.id, {
+        variantId,
+        quantity: BigInt(input.quantity),
+        expiresAt,
+        idempotencyKey,
+        requestHash: stockHoldRequestHash(variantId, input),
+        now,
+      });
+      return this.mapHold(hold, now);
+    } catch (error: unknown) {
+      if (error instanceof InventoryVariantNotFoundError) {
+        throw new NotFoundException('Not found.');
+      }
+      if (error instanceof InsufficientSellableInventoryError) {
+        throw new UnprocessableEntityException(
+          'Insufficient sellable inventory.',
+        );
+      }
+      if (error instanceof StockHoldIdempotencyConflictError) {
+        throw new ConflictException('Idempotency key conflict.');
+      }
+      throw error;
+    }
+  }
+
+  public async updateHoldExpiry(
+    context: ResolvedMerchantContext,
+    variantId: string,
+    holdId: string,
+    input: UpdateStockHoldExpiryInput,
+  ) {
+    const now = new Date();
+    const expiresAt = new Date(input.expiresAt);
+    if (expiresAt <= now) {
+      throw new UnprocessableEntityException(
+        'Hold expiry must be in the future.',
+      );
+    }
+    try {
+      const hold = await this.store.updateStockHoldExpiry(
+        context.merchant.id,
+        variantId,
+        holdId,
+        expiresAt,
+        now,
+      );
+      if (hold === null) throw new NotFoundException('Not found.');
+      return this.mapHold(hold, now);
+    } catch (error: unknown) {
+      if (error instanceof StockHoldNotActiveError) {
+        throw new UnprocessableEntityException(
+          'Only active stock holds may be updated.',
+        );
+      }
+      throw error;
+    }
+  }
+
+  public async releaseHold(
+    context: ResolvedMerchantContext,
+    variantId: string,
+    holdId: string,
+  ) {
+    const now = new Date();
+    const hold = await this.store.releaseStockHold(
+      context.merchant.id,
+      variantId,
+      holdId,
+      now,
+    );
+    if (hold === null) throw new NotFoundException('Not found.');
+    return this.mapHold(hold, now);
+  }
+
   private mapInventory(record: InventoryIdentityRecord) {
     return {
       variant: record.variant,
       product: record.product,
       availableQuantity: record.availableQuantity.toString(),
+      heldQuantity: record.heldQuantity.toString(),
+      sellableQuantity: (
+        record.availableQuantity - record.heldQuantity
+      ).toString(),
       inventoryUpdatedAt: record.inventoryUpdatedAt?.toISOString() ?? null,
+    };
+  }
+
+  private mapHold(record: StockHoldRecord, now: Date) {
+    const effectivelyExpired =
+      record.status === 'ACTIVE' && record.expiresAt <= now;
+    return {
+      id: record.id,
+      variantId: record.variantId,
+      quantity: record.quantity.toString(),
+      status: effectivelyExpired ? 'EXPIRED' : record.status,
+      expiresAt: record.expiresAt.toISOString(),
+      releasedAt: record.releasedAt?.toISOString() ?? null,
+      expiredAt:
+        record.expiredAt?.toISOString() ??
+        (effectivelyExpired ? record.expiresAt.toISOString() : null),
+      createdAt: record.createdAt.toISOString(),
+      updatedAt: record.updatedAt.toISOString(),
     };
   }
 

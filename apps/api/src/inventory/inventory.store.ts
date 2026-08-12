@@ -1,5 +1,6 @@
 import type { InventoryLedgerQuery } from './inventory-ledger-query.schema';
 import type { InventoryListQuery } from './inventory-query.schema';
+import type { StockHoldListQuery } from './stock-hold-query.schema';
 
 export const INVENTORY_STORE = Symbol('INVENTORY_STORE');
 
@@ -23,6 +24,7 @@ export interface InventoryIdentityRecord {
     readonly status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
   };
   readonly availableQuantity: bigint;
+  readonly heldQuantity: bigint;
   readonly inventoryUpdatedAt: Date | null;
 }
 
@@ -64,6 +66,39 @@ export interface ApplyMovementCommand {
 export class InventoryVariantNotFoundError extends Error {}
 export class InsufficientAvailableStockError extends Error {}
 export class InventoryIdempotencyConflictError extends Error {}
+export class InsufficientSellableInventoryError extends Error {}
+export class InventoryReservedByHoldsError extends Error {}
+export class StockHoldIdempotencyConflictError extends Error {}
+export class StockHoldNotActiveError extends Error {}
+
+export type StockHoldStatus = 'ACTIVE' | 'RELEASED' | 'EXPIRED';
+
+export interface StockHoldRecord {
+  readonly id: string;
+  readonly variantId: string;
+  readonly quantity: bigint;
+  readonly status: StockHoldStatus;
+  readonly expiresAt: Date;
+  readonly releasedAt: Date | null;
+  readonly expiredAt: Date | null;
+  readonly requestHash: string;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+}
+
+export interface StockHoldListResult {
+  readonly rows: readonly StockHoldRecord[];
+  readonly total: number;
+}
+
+export interface CreateStockHoldCommand {
+  readonly variantId: string;
+  readonly quantity: bigint;
+  readonly expiresAt: Date;
+  readonly idempotencyKey: string;
+  readonly requestHash: string;
+  readonly now: Date;
+}
 
 export interface InventoryStore {
   listInventory(
@@ -83,4 +118,33 @@ export interface InventoryStore {
     merchantId: string,
     command: ApplyMovementCommand,
   ): Promise<InventoryMovementRecord>;
+  listStockHolds(
+    merchantId: string,
+    variantId: string,
+    query: StockHoldListQuery,
+    now: Date,
+  ): Promise<StockHoldListResult | null>;
+  getStockHold(
+    merchantId: string,
+    variantId: string,
+    holdId: string,
+  ): Promise<StockHoldRecord | null>;
+  createStockHold(
+    merchantId: string,
+    command: CreateStockHoldCommand,
+  ): Promise<StockHoldRecord>;
+  releaseStockHold(
+    merchantId: string,
+    variantId: string,
+    holdId: string,
+    now: Date,
+  ): Promise<StockHoldRecord | null>;
+  updateStockHoldExpiry(
+    merchantId: string,
+    variantId: string,
+    holdId: string,
+    expiresAt: Date,
+    now: Date,
+  ): Promise<StockHoldRecord | null>;
+  expireDueStockHolds(now: Date, batchSize: number): Promise<number>;
 }

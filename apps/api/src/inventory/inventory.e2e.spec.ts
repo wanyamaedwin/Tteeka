@@ -108,6 +108,9 @@ async function cleanup() {
   });
   const merchantIds = merchants.map(({ id }) => id);
   const userIds = users.map(({ id }) => id);
+  await client.stockHold.deleteMany({
+    where: { merchantId: { in: merchantIds } },
+  });
   await client.inventoryLedgerEntry.deleteMany({
     where: { merchantId: { in: merchantIds } },
   });
@@ -166,8 +169,23 @@ void test('real guards and PostgreSQL expose zero, movements, replay, ledger pri
   const zero = await call(owner.merchant.id, owner.token, `/${variant.id}`);
   assert.equal(zero.status, 200);
   assert.equal(
-    ((await zero.json()) as { availableQuantity: string }).availableQuantity,
-    '0',
+    JSON.stringify(await zero.json()),
+    JSON.stringify({
+      variant: {
+        id: variant.id,
+        productId: product.id,
+        sku: variant.sku,
+        barcode: null,
+        size: null,
+        colour: null,
+        status: 'ARCHIVED',
+      },
+      product: { id: product.id, name: product.name, status: 'ACTIVE' },
+      availableQuantity: '0',
+      heldQuantity: '0',
+      sellableQuantity: '0',
+      inventoryUpdatedAt: null,
+    }),
   );
   const key = 'Inventory-E2E-Key';
   const receipt = await call(
@@ -228,6 +246,169 @@ void test('real guards and PostgreSQL expose zero, movements, replay, ledger pri
   assert.equal(ledgerBody.movements.length, 3);
   assert.equal('idempotencyKey' in ledgerBody.movements[0]!, false);
   assert.equal('requestHash' in ledgerBody.movements[0]!, false);
+  const holdKey = 'Stock-Hold-E2E-Key';
+  const holdExpiry = new Date(Date.now() + 3_600_000).toISOString();
+  const createdHold = await call(
+    owner.merchant.id,
+    owner.token,
+    `/${variant.id}/holds`,
+    {
+      method: 'POST',
+      key: holdKey,
+      body: { quantity: '10', expiresAt: holdExpiry },
+    },
+  );
+  assert.equal(createdHold.status, 200);
+  const hold = (await createdHold.json()) as { id: string; status: string };
+  assert.equal(hold.status, 'ACTIVE');
+  assert.equal('idempotencyKey' in hold, false);
+  assert.equal('requestHash' in hold, false);
+  const holdReplay = await call(
+    owner.merchant.id,
+    owner.token,
+    `/${variant.id}/holds`,
+    {
+      method: 'POST',
+      key: holdKey,
+      body: { quantity: '010', expiresAt: holdExpiry },
+    },
+  );
+  assert.equal(holdReplay.status, 200);
+  assert.equal(((await holdReplay.json()) as { id: string }).id, hold.id);
+  const withHold = await call(owner.merchant.id, owner.token, `/${variant.id}`);
+  assert.deepEqual(
+    (await withHold.json()) as {
+      availableQuantity: string;
+      heldQuantity: string;
+      sellableQuantity: string;
+    },
+    {
+      variant: {
+        id: variant.id,
+        productId: product.id,
+        sku: variant.sku,
+        barcode: null,
+        size: null,
+        colour: null,
+        status: 'ARCHIVED',
+      },
+      product: { id: product.id, name: product.name, status: 'ACTIVE' },
+      availableQuantity: '49',
+      heldQuantity: '10',
+      sellableQuantity: '39',
+      inventoryUpdatedAt: (
+        await client.inventoryBalance.findFirstOrThrow({
+          where: { merchantId: owner.merchant.id, variantId: variant.id },
+        })
+      ).updatedAt.toISOString(),
+    },
+  );
+  const holds = await call(
+    owner.merchant.id,
+    owner.token,
+    `/${variant.id}/holds?status=ACTIVE`,
+  );
+  assert.equal(holds.status, 200);
+  assert.equal(
+    ((await holds.json()) as { pagination: { total: number } }).pagination
+      .total,
+    1,
+  );
+  const newExpiry = new Date(Date.now() + 7_200_000).toISOString();
+  assert.equal(
+    (
+      await call(
+        owner.merchant.id,
+        owner.token,
+        `/${variant.id}/holds/${hold.id}/expiry`,
+        { method: 'PUT', body: { expiresAt: newExpiry } },
+      )
+    ).status,
+    200,
+  );
+  const released = await call(
+    owner.merchant.id,
+    owner.token,
+    `/${variant.id}/holds/${hold.id}/release`,
+    { method: 'POST' },
+  );
+  assert.equal(released.status, 200);
+  assert.equal(
+    ((await released.json()) as { status: string }).status,
+    'RELEASED',
+  );
+  assert.equal(
+    (
+      await call(
+        owner.merchant.id,
+        owner.token,
+        `/${variant.id}/holds/${hold.id}`,
+      )
+    ).status,
+    200,
+  );
+
+  const expiring = await call(
+    owner.merchant.id,
+    owner.token,
+    `/${variant.id}/holds`,
+    {
+      method: 'POST',
+      key: 'Expiring-Hold-E2E',
+      body: {
+        quantity: '7',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      },
+    },
+  );
+  const expiringBody = (await expiring.json()) as { id: string };
+  await client.stockHold.update({
+    where: { id: expiringBody.id },
+    data: { expiresAt: new Date(Date.now() - 1_000) },
+  });
+  const expiredRelease = await call(
+    owner.merchant.id,
+    owner.token,
+    `/${variant.id}/holds/${expiringBody.id}/release`,
+    { method: 'POST' },
+  );
+  assert.equal(expiredRelease.status, 200);
+  assert.equal(
+    ((await expiredRelease.json()) as { status: string }).status,
+    'EXPIRED',
+  );
+  for (const [key, quantity] of [
+    ['Active-Multiple-A', '5'],
+    ['Active-Multiple-B', '6'],
+  ] as const) {
+    assert.equal(
+      (
+        await call(owner.merchant.id, owner.token, `/${variant.id}/holds`, {
+          method: 'POST',
+          key,
+          body: {
+            quantity,
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          },
+        })
+      ).status,
+      200,
+    );
+  }
+  const multiple = await call(owner.merchant.id, owner.token, `/${variant.id}`);
+  const multipleBody = (await multiple.json()) as {
+    availableQuantity: string;
+    heldQuantity: string;
+    sellableQuantity: string;
+  };
+  assert.deepEqual(
+    [
+      multipleBody.availableQuantity,
+      multipleBody.heldQuantity,
+      multipleBody.sellableQuantity,
+    ],
+    ['49', '11', '38'],
+  );
   const unchanged = await client.session.findUniqueOrThrow({
     where: { id: owner.session.id },
   });
@@ -237,6 +418,87 @@ void test('real guards and PostgreSQL expose zero, movements, replay, ledger pri
     owner.session.expiresAt.getTime(),
   );
   assert.equal(receipt.headers.get('set-cookie'), null);
+});
+
+void test('all hold routes enforce authentication and conceal foreign hold ownership', async () => {
+  const owner = await actor(Object.values(INVENTORY_PERMISSIONS));
+  const outsider = await actor(Object.values(INVENTORY_PERMISSIONS));
+  const product = await client.product.create({
+    data: { merchantId: owner.merchant.id, name: 'Hold security product' },
+  });
+  const variant = await client.productVariant.create({
+    data: {
+      merchantId: owner.merchant.id,
+      productId: product.id,
+      sku: `SEC-${randomUUID()}`,
+    },
+  });
+  const hold = await client.stockHold.create({
+    data: {
+      merchantId: owner.merchant.id,
+      variantId: variant.id,
+      quantity: 1n,
+      expiresAt: new Date(Date.now() + 60_000),
+      idempotencyKey: randomUUID(),
+      requestHash: 'a'.repeat(64),
+    },
+  });
+  const routes: readonly {
+    path: string;
+    options: { method?: string; key?: string; body?: unknown };
+  }[] = [
+    { path: `/${variant.id}/holds`, options: {} },
+    {
+      path: `/${variant.id}/holds`,
+      options: {
+        method: 'POST',
+        key: 'unauth-hold',
+        body: {
+          quantity: '1',
+          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        },
+      },
+    },
+    { path: `/${variant.id}/holds/${hold.id}`, options: {} },
+    {
+      path: `/${variant.id}/holds/${hold.id}/expiry`,
+      options: {
+        method: 'PUT',
+        body: { expiresAt: new Date(Date.now() + 60_000).toISOString() },
+      },
+    },
+    {
+      path: `/${variant.id}/holds/${hold.id}/release`,
+      options: { method: 'POST' },
+    },
+  ];
+  for (const route of routes) {
+    assert.equal(
+      (await call(owner.merchant.id, 'invalid', route.path, route.options))
+        .status,
+      401,
+    );
+  }
+  assert.equal(
+    (
+      await call(
+        outsider.merchant.id,
+        outsider.token,
+        `/${variant.id}/holds/${hold.id}`,
+      )
+    ).status,
+    404,
+  );
+  assert.equal(
+    (
+      await call(
+        owner.merchant.id,
+        outsider.token,
+        `/${variant.id}/holds/${hold.id}`,
+      )
+    ).status,
+    403,
+  );
 });
 
 void test('permissions are independent and foreign Variants are concealed', async () => {
@@ -272,6 +534,34 @@ void test('permissions are independent and foreign Variants are concealed', asyn
     404,
   );
   assert.equal((await call(reader.merchant.id, reader.token, '')).status, 200);
+  assert.equal(
+    (
+      await call(
+        manager.merchant.id,
+        manager.token,
+        `/${foreignVariant.id}/holds`,
+      )
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await call(
+        reader.merchant.id,
+        reader.token,
+        `/${foreignVariant.id}/holds`,
+        {
+          method: 'POST',
+          key: 'denied-hold',
+          body: {
+            quantity: '1',
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          },
+        },
+      )
+    ).status,
+    403,
+  );
   assert.equal(
     (
       await call(

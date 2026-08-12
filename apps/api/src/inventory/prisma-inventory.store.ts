@@ -3,16 +3,24 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import type { InventoryLedgerQuery } from './inventory-ledger-query.schema';
 import type { InventoryListQuery } from './inventory-query.schema';
+import type { StockHoldListQuery } from './stock-hold-query.schema';
 import {
   type ApplyMovementCommand,
+  type CreateStockHoldCommand,
+  InsufficientSellableInventoryError,
   InventoryIdempotencyConflictError,
   type InventoryIdentityRecord,
   type InventoryLedgerResult,
   type InventoryListResult,
   type InventoryMovementRecord,
   type InventoryStore,
+  InventoryReservedByHoldsError,
   InventoryVariantNotFoundError,
   InsufficientAvailableStockError,
+  StockHoldIdempotencyConflictError,
+  type StockHoldListResult,
+  type StockHoldRecord,
+  StockHoldNotActiveError,
 } from './inventory.store';
 
 const movementSelect = {
@@ -45,6 +53,19 @@ const inventorySelect = {
   },
 } as const;
 
+const holdSelect = {
+  id: true,
+  variantId: true,
+  quantity: true,
+  status: true,
+  expiresAt: true,
+  releasedAt: true,
+  expiredAt: true,
+  requestHash: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
 function isIdempotencyUniqueViolation(error: unknown): boolean {
   if (
     typeof error !== 'object' ||
@@ -60,21 +81,24 @@ function isIdempotencyUniqueViolation(error: unknown): boolean {
   );
 }
 
-function mapInventoryRow(row: {
-  id: string;
-  productId: string;
-  sku: string;
-  barcode: string | null;
-  size: string | null;
-  colour: string | null;
-  status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
-  product: {
+function mapInventoryRow(
+  row: {
     id: string;
-    name: string;
+    productId: string;
+    sku: string;
+    barcode: string | null;
+    size: string | null;
+    colour: string | null;
     status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
-  };
-  inventoryBalances: readonly { quantity: bigint; updatedAt: Date }[];
-}): InventoryIdentityRecord {
+    product: {
+      id: string;
+      name: string;
+      status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+    };
+    inventoryBalances: readonly { quantity: bigint; updatedAt: Date }[];
+  },
+  heldQuantity = 0n,
+): InventoryIdentityRecord {
   const balance = row.inventoryBalances[0];
   return {
     variant: {
@@ -88,6 +112,7 @@ function mapInventoryRow(row: {
     },
     product: row.product,
     availableQuantity: balance?.quantity ?? 0n,
+    heldQuantity,
     inventoryUpdatedAt: balance?.updatedAt ?? null,
   };
 }
@@ -122,28 +147,68 @@ export class PrismaInventoryStore implements InventoryStore {
             ],
           }),
     };
-    const [total, rows] = await this.database.client.$transaction([
-      this.database.client.productVariant.count({ where }),
-      this.database.client.productVariant.findMany({
-        where,
-        select: inventorySelect,
-        orderBy: [{ product: { name: 'asc' } }, { sku: 'asc' }, { id: 'asc' }],
-        skip: (query.page - 1) * query.pageSize,
-        take: query.pageSize,
-      }),
-    ]);
-    return { rows: rows.map(mapInventoryRow), total };
+    return this.database.client.$transaction(async (transaction) => {
+      const [total, rows] = await Promise.all([
+        transaction.productVariant.count({ where }),
+        transaction.productVariant.findMany({
+          where,
+          select: inventorySelect,
+          orderBy: [
+            { product: { name: 'asc' } },
+            { sku: 'asc' },
+            { id: 'asc' },
+          ],
+          skip: (query.page - 1) * query.pageSize,
+          take: query.pageSize,
+        }),
+      ]);
+      const variantIds = rows.map(({ id }) => id);
+      const held =
+        variantIds.length === 0
+          ? []
+          : await transaction.stockHold.groupBy({
+              by: ['variantId'],
+              where: {
+                merchantId,
+                variantId: { in: variantIds },
+                status: 'ACTIVE',
+                expiresAt: { gt: new Date() },
+              },
+              _sum: { quantity: true },
+            });
+      const heldByVariant = new Map(
+        held.map((row) => [row.variantId, row._sum.quantity ?? 0n]),
+      );
+      return {
+        rows: rows.map((row) =>
+          mapInventoryRow(row, heldByVariant.get(row.id) ?? 0n),
+        ),
+        total,
+      };
+    });
   }
 
   public async getInventory(
     merchantId: string,
     variantId: string,
   ): Promise<InventoryIdentityRecord | null> {
-    const row = await this.database.client.productVariant.findFirst({
-      where: { merchantId, id: variantId },
-      select: inventorySelect,
+    return this.database.client.$transaction(async (transaction) => {
+      const row = await transaction.productVariant.findFirst({
+        where: { merchantId, id: variantId },
+        select: inventorySelect,
+      });
+      if (row === null) return null;
+      const held = await transaction.stockHold.aggregate({
+        where: {
+          merchantId,
+          variantId,
+          status: 'ACTIVE',
+          expiresAt: { gt: new Date() },
+        },
+        _sum: { quantity: true },
+      });
+      return mapInventoryRow(row, held._sum.quantity ?? 0n);
     });
-    return row === null ? null : mapInventoryRow(row);
   }
 
   public listLedger(
@@ -226,6 +291,20 @@ export class PrismaInventoryStore implements InventoryStore {
             ? current + command.quantity
             : current - command.quantity;
         if (next < 0n) throw new InsufficientAvailableStockError();
+        if (command.type === 'ADJUSTMENT_OUT') {
+          const held = await transaction.stockHold.aggregate({
+            where: {
+              merchantId,
+              variantId: command.variantId,
+              status: 'ACTIVE',
+              expiresAt: { gt: new Date() },
+            },
+            _sum: { quantity: true },
+          });
+          if (next < (held._sum.quantity ?? 0n)) {
+            throw new InventoryReservedByHoldsError();
+          }
+        }
 
         const movement = await transaction.inventoryLedgerEntry.create({
           data: {
@@ -273,12 +352,228 @@ export class PrismaInventoryStore implements InventoryStore {
     }
   }
 
+  public listStockHolds(
+    merchantId: string,
+    variantId: string,
+    query: StockHoldListQuery,
+    now: Date,
+  ): Promise<StockHoldListResult | null> {
+    return this.database.client.$transaction(async (transaction) => {
+      const variant = await transaction.productVariant.findUnique({
+        where: { merchantId_id: { merchantId, id: variantId } },
+        select: { id: true },
+      });
+      if (variant === null) return null;
+      const effectiveFilter =
+        query.status === 'ACTIVE'
+          ? { status: 'ACTIVE' as const, expiresAt: { gt: now } }
+          : query.status === 'EXPIRED'
+            ? {
+                OR: [
+                  { status: 'EXPIRED' as const },
+                  { status: 'ACTIVE' as const, expiresAt: { lte: now } },
+                ],
+              }
+            : query.status === 'RELEASED'
+              ? { status: 'RELEASED' as const }
+              : {};
+      const where = { merchantId, variantId, ...effectiveFilter };
+      const [total, rows] = await Promise.all([
+        transaction.stockHold.count({ where }),
+        transaction.stockHold.findMany({
+          where,
+          select: holdSelect,
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          skip: (query.page - 1) * query.pageSize,
+          take: query.pageSize,
+        }),
+      ]);
+      return { rows, total };
+    });
+  }
+
+  public getStockHold(
+    merchantId: string,
+    variantId: string,
+    holdId: string,
+  ): Promise<StockHoldRecord | null> {
+    return this.database.client.stockHold.findFirst({
+      where: { merchantId, variantId, id: holdId },
+      select: holdSelect,
+    });
+  }
+
+  public async createStockHold(
+    merchantId: string,
+    command: CreateStockHoldCommand,
+  ): Promise<StockHoldRecord> {
+    try {
+      return await this.database.client.$transaction(async (transaction) => {
+        const replay = await transaction.stockHold.findUnique({
+          where: {
+            merchantId_idempotencyKey: {
+              merchantId,
+              idempotencyKey: command.idempotencyKey,
+            },
+          },
+          select: holdSelect,
+        });
+        if (replay !== null) return this.resolveHoldReplay(replay, command);
+        const variant = await transaction.productVariant.findUnique({
+          where: { merchantId_id: { merchantId, id: command.variantId } },
+          select: { id: true },
+        });
+        if (variant === null) throw new InventoryVariantNotFoundError();
+        await transaction.$executeRaw`INSERT INTO "inventory_balances" ("merchant_id", "variant_id", "state", "quantity", "updated_at") VALUES (${merchantId}::uuid, ${command.variantId}::uuid, 'AVAILABLE'::inventory_state, 0, CURRENT_TIMESTAMP) ON CONFLICT ("merchant_id", "variant_id", "state") DO NOTHING`;
+        const balances = await transaction.$queryRaw<
+          readonly { quantity: bigint }[]
+        >`SELECT "quantity" FROM "inventory_balances" WHERE "merchant_id" = ${merchantId}::uuid AND "variant_id" = ${command.variantId}::uuid AND "state" = 'AVAILABLE'::inventory_state FOR UPDATE`;
+        const physical = balances[0]?.quantity;
+        if (physical === undefined)
+          throw new Error('Inventory balance missing.');
+        const serializedReplay = await transaction.stockHold.findUnique({
+          where: {
+            merchantId_idempotencyKey: {
+              merchantId,
+              idempotencyKey: command.idempotencyKey,
+            },
+          },
+          select: holdSelect,
+        });
+        if (serializedReplay !== null) {
+          return this.resolveHoldReplay(serializedReplay, command);
+        }
+        const held = await transaction.stockHold.aggregate({
+          where: {
+            merchantId,
+            variantId: command.variantId,
+            status: 'ACTIVE',
+            expiresAt: { gt: command.now },
+          },
+          _sum: { quantity: true },
+        });
+        if (command.quantity > physical - (held._sum.quantity ?? 0n)) {
+          throw new InsufficientSellableInventoryError();
+        }
+        return transaction.stockHold.create({
+          data: {
+            merchantId,
+            variantId: command.variantId,
+            quantity: command.quantity,
+            expiresAt: command.expiresAt,
+            idempotencyKey: command.idempotencyKey,
+            requestHash: command.requestHash,
+          },
+          select: holdSelect,
+        });
+      });
+    } catch (error: unknown) {
+      if (!isIdempotencyUniqueViolation(error)) throw error;
+      const replay = await this.database.client.stockHold.findUnique({
+        where: {
+          merchantId_idempotencyKey: {
+            merchantId,
+            idempotencyKey: command.idempotencyKey,
+          },
+        },
+        select: holdSelect,
+      });
+      if (replay === null) throw error;
+      return this.resolveHoldReplay(replay, command);
+    }
+  }
+
+  public releaseStockHold(
+    merchantId: string,
+    variantId: string,
+    holdId: string,
+    now: Date,
+  ): Promise<StockHoldRecord | null> {
+    return this.database.client.$transaction(async (transaction) => {
+      const locked = await transaction.$queryRaw<readonly { id: string }[]>`
+        SELECT "id" FROM "stock_holds" WHERE "merchant_id" = ${merchantId}::uuid AND "variant_id" = ${variantId}::uuid AND "id" = ${holdId}::uuid FOR UPDATE`;
+      if (locked.length === 0) return null;
+      const hold = await transaction.stockHold.findUniqueOrThrow({
+        where: { id: holdId },
+        select: holdSelect,
+      });
+      if (hold.status === 'RELEASED' || hold.status === 'EXPIRED') return hold;
+      if (hold.expiresAt <= now) {
+        return transaction.stockHold.update({
+          where: { id: holdId },
+          data: { status: 'EXPIRED', expiredAt: hold.expiresAt },
+          select: holdSelect,
+        });
+      }
+      return transaction.stockHold.update({
+        where: { id: holdId },
+        data: { status: 'RELEASED', releasedAt: now },
+        select: holdSelect,
+      });
+    });
+  }
+
+  public updateStockHoldExpiry(
+    merchantId: string,
+    variantId: string,
+    holdId: string,
+    expiresAt: Date,
+    now: Date,
+  ): Promise<StockHoldRecord | null> {
+    return this.database.client.$transaction(async (transaction) => {
+      const locked = await transaction.$queryRaw<readonly { id: string }[]>`
+        SELECT "id" FROM "stock_holds" WHERE "merchant_id" = ${merchantId}::uuid AND "variant_id" = ${variantId}::uuid AND "id" = ${holdId}::uuid FOR UPDATE`;
+      if (locked.length === 0) return null;
+      const hold = await transaction.stockHold.findUniqueOrThrow({
+        where: { id: holdId },
+        select: holdSelect,
+      });
+      if (hold.status !== 'ACTIVE' || hold.expiresAt <= now) {
+        throw new StockHoldNotActiveError();
+      }
+      if (hold.expiresAt.getTime() === expiresAt.getTime()) return hold;
+      return transaction.stockHold.update({
+        where: { id: holdId },
+        data: { expiresAt },
+        select: holdSelect,
+      });
+    });
+  }
+
+  public async expireDueStockHolds(
+    now: Date,
+    batchSize: number,
+  ): Promise<number> {
+    const rows = await this.database.client.$queryRaw<
+      readonly { id: string }[]
+    >`
+      WITH due AS (
+        SELECT "id" FROM "stock_holds"
+        WHERE "status" = 'ACTIVE'::stock_hold_status AND "expires_at" <= ${now}
+        ORDER BY "expires_at", "id" FOR UPDATE SKIP LOCKED LIMIT ${batchSize}
+      )
+      UPDATE "stock_holds" AS h SET "status" = 'EXPIRED'::stock_hold_status,
+        "expired_at" = h."expires_at", "updated_at" = CURRENT_TIMESTAMP
+      FROM due WHERE h."id" = due."id" RETURNING h."id"`;
+    return rows.length;
+  }
+
   private resolveReplay(
     record: InventoryMovementRecord,
     command: ApplyMovementCommand,
   ): InventoryMovementRecord {
     if (record.requestHash !== command.requestHash) {
       throw new InventoryIdempotencyConflictError();
+    }
+    return record;
+  }
+
+  private resolveHoldReplay(
+    record: StockHoldRecord,
+    command: CreateStockHoldCommand,
+  ): StockHoldRecord {
+    if (record.requestHash !== command.requestHash) {
+      throw new StockHoldIdempotencyConflictError();
     }
     return record;
   }

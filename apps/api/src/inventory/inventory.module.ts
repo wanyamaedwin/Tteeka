@@ -6,6 +6,7 @@ import { InventoryController } from './inventory.controller';
 import { InventoryService } from './inventory.service';
 import { INVENTORY_STORE } from './inventory.store';
 import { PrismaInventoryStore } from './prisma-inventory.store';
+import { StockHoldExpiryService } from './stock-hold-expiry.service';
 
 const inventoryStoreProvider: Provider = {
   provide: INVENTORY_STORE,
@@ -15,6 +16,7 @@ const inventoryStoreProvider: Provider = {
 @Module({
   imports: [AuthModule, AuthorizationModule],
   controllers: [InventoryController],
-  providers: [inventoryStoreProvider, InventoryService],
+  providers: [inventoryStoreProvider, InventoryService, StockHoldExpiryService],
+  exports: [StockHoldExpiryService],
 })
 export class InventoryModule {}

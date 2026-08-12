@@ -315,14 +315,14 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - Merchant creation, deletion, or status-management APIs
 - User or staff administration APIs
 - Role hierarchy, inheritance, wildcard, deny, or Owner/Admin bypass semantics
-- inventory quantities, stock ledger, holds/reservations, warehouses/bins, or availability booleans
+- warehouses/bins, transfers, fulfillment stock states, or availability booleans
 - discounts, promotions, scheduled/bulk pricing, tax/VAT, or FX conversion
 - Product or Variant images/media
 - Category or Brand CRUD/tables, public storefront, or customer-facing Product visibility
 - customers
 - orders or payments
 - cash on delivery (COD) settings or behavior
-- stock-hold settings or behavior
+- order-owned holds, partial release, or stock-hold policy settings
 - delivery settings, riders, or returns settings
 - receipts
 - access-management audit history or business-policy domain functionality
@@ -333,10 +333,20 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 
 Prisma remains exposed through infrastructure services and narrow Auth, Authorization, Merchant, and AccessManagement stores; there are no general repositories. No seed Users, Merchants, or Roles exist. Permission synchronization is an explicit operational command only.
 
-These items belong to later reviewed steps and are outside B3.2. Inventory begins in B4.1, which has not started.
+These items belong to later reviewed steps and remain outside the completed B4.2 scope.
 
 # B4.1 — Inventory ledger and stock availability
 
 B4.1 provides an append-only inventory ledger, AVAILABLE inventory state, transactional `InventoryBalance` projection, receipts, positive/negative manual adjustments, negative-stock prevention, inventory list/detail/history, domain-local idempotency, PostgreSQL row-lock concurrency, `inventory.read`/`inventory.manage`, a 13-key production Permission catalog, and the seventh migration.
 
 Not implemented: HELD stock, StockHold or expiry, reservations, packed/in-transit states, warehouse/bin/transfer, orders or sale consumption, return inspection, inventory audit/outbox, or Redis stock caching.
+
+# B4.2 — Stock holds and reservation expiry
+
+B4.2 adds Merchant/Variant-scoped StockHold persistence, ACTIVE/RELEASED/EXPIRED lifecycle, effective time-based expiry, held and sellable inventory projections, five guarded APIs, create idempotency, expiry updates, lifecycle-idempotent release, and an internal bounded `SKIP LOCKED` expiry processor in the eighth migration.
+
+Physical AVAILABLE and the three B4.1 movement types remain unchanged. Holds never alter the ledger or balance. Hold creation and outbound movement lock the same AVAILABLE row, preventing concurrent oversell and preventing physical stock from falling below effective active reservations. Production now has 40 guarded routes and 13 Permission keys.
+
+Not implemented: order/checkout ownership, sale consumption, partial release, warehouse/bin/transfer, fulfillment states, a scheduler/queue, notifications, Redis stock caching, inventory audit/outbox, or generic B14 idempotency.
+
+See [STOCK_HOLDS.md](STOCK_HOLDS.md) for the full contract.

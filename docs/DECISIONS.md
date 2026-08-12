@@ -1506,3 +1506,21 @@
 13. PostgreSQL remains stock authority; no Redis cache or process lock is used.
 14. Inventory history is not a generic audit log/outbox.
 15. HELD and StockHold remain deferred to B4.2.
+
+# B4.2 stock-hold decisions
+
+1. Temporary reservations are separate StockHold records; InventoryState remains exactly AVAILABLE.
+2. Physical available stays unchanged; effective active holds produce held quantity, and sellable is their difference.
+3. Holds never write InventoryBalance or InventoryLedgerEntry.
+4. Expiry is effective at `expiresAt`, independent of processor lag.
+5. ACTIVE, RELEASED, and EXPIRED are the only persisted hold states; release and expiry are terminal.
+6. Hold creation and ADJUSTMENT_OUT lock the same AVAILABLE row and validate reservation invariants under that lock.
+7. Hold creation requires Merchant-local opaque idempotency over Variant, canonical quantity, and canonical expiry.
+8. Exact replay returns the original; mismatched key reuse conflicts.
+9. Expiry updates apply only to effectively active holds, may shorten or extend, and identical updates are no-ops.
+10. Release of a due active hold records EXPIRED; repeated terminal release is idempotent.
+11. The internal processor uses bounded PostgreSQL `FOR UPDATE SKIP LOCKED` batches; no scheduler or public processor route is added.
+12. Inventory reads compute held totals with set-based/aggregate queries and no N+1 loop.
+13. Existing exact inventory read/manage grants cover the five routes; the catalog remains 13 keys.
+14. PostgreSQL remains reservation authority; no Redis cache or process lock is used.
+15. Order ownership, sale consumption, partial release, fulfillment states, audit/outbox, and generic B14 idempotency remain deferred.

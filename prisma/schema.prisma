@@ -75,6 +75,14 @@ enum InventoryMovementType {
   @@map("inventory_movement_type")
 }
 
+enum StockHoldStatus {
+  ACTIVE
+  RELEASED
+  EXPIRED
+
+  @@map("stock_hold_status")
+}
+
 model Merchant {
   id          String         @id(map: "merchants_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
   displayName String         @map("display_name") @db.VarChar(160)
@@ -92,6 +100,7 @@ model Merchant {
   products               Product[]
   inventoryBalances      InventoryBalance[]
   inventoryLedgerEntries InventoryLedgerEntry[]
+  stockHolds             StockHold[]
 
   @@index([status], map: "merchants_status_idx")
   @@map("merchants")
@@ -139,6 +148,7 @@ model ProductVariant {
   priceHistory           VariantPriceHistory[]
   inventoryBalances      InventoryBalance[]
   inventoryLedgerEntries InventoryLedgerEntry[]
+  stockHolds             StockHold[]
 
   @@unique([merchantId, id], map: "product_variants_merchant_id_id_key")
   @@unique([merchantId, sku], map: "product_variants_merchant_id_sku_key")
@@ -185,6 +195,30 @@ model InventoryLedgerEntry {
   @@index([merchantId, variantId, createdAt, id], map: "inventory_ledger_variant_created_id_idx")
   @@index([merchantId, variantId, type, createdAt, id], map: "inventory_ledger_variant_type_created_id_idx")
   @@map("inventory_ledger_entries")
+}
+
+model StockHold {
+  id             String          @id(map: "stock_holds_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  merchantId     String          @map("merchant_id") @db.Uuid
+  variantId      String          @map("variant_id") @db.Uuid
+  quantity       BigInt
+  status         StockHoldStatus @default(ACTIVE)
+  expiresAt      DateTime        @map("expires_at") @db.Timestamptz(3)
+  releasedAt     DateTime?       @map("released_at") @db.Timestamptz(3)
+  expiredAt      DateTime?       @map("expired_at") @db.Timestamptz(3)
+  idempotencyKey String          @map("idempotency_key") @db.VarChar(128)
+  requestHash    String          @map("request_hash") @db.Char(64)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  merchant Merchant       @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "stock_holds_merchant_id_fkey")
+  variant  ProductVariant @relation(fields: [merchantId, variantId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "stock_holds_merchant_id_variant_id_fkey")
+
+  @@unique([merchantId, id], map: "stock_holds_merchant_id_id_key")
+  @@unique([merchantId, idempotencyKey], map: "stock_holds_merchant_id_idempotency_key_key")
+  @@index([merchantId, variantId, status, expiresAt], map: "stock_holds_merchant_variant_status_expiry_idx")
+  @@index([status, expiresAt], map: "stock_holds_status_expiry_idx")
+  @@map("stock_holds")
 }
 
 model VariantPriceHistory {
