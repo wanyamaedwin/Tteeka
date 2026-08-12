@@ -122,6 +122,7 @@ export class PaymentService {
       orderId: payment.orderId,
       method: payment.method,
       status: payment.status,
+      verificationSource: payment.verificationSource,
       amount: payment.amount.toString(),
       currency: payment.currency,
       payerPhone: payment.payerPhone,

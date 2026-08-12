@@ -128,6 +128,29 @@ enum PaymentTransactionStatus {
   @@map("payment_transaction_status")
 }
 
+enum PaymentVerificationSource {
+  MANUAL
+  PROVIDER
+
+  @@map("payment_verification_source")
+}
+
+enum PaymentProvider {
+  MTN_MOMO
+  AIRTEL_MONEY
+
+  @@map("payment_provider")
+}
+
+enum PaymentVerificationAttemptStatus {
+  PENDING
+  VERIFIED
+  NOT_VERIFIED
+  FAILED
+
+  @@map("payment_verification_attempt_status")
+}
+
 model Merchant {
   id          String         @id(map: "merchants_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
   displayName String         @map("display_name") @db.VarChar(160)
@@ -140,17 +163,18 @@ model Merchant {
   createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  memberships            MerchantMembership[]
-  roles                  Role[]
-  products               Product[]
-  inventoryBalances      InventoryBalance[]
-  inventoryLedgerEntries InventoryLedgerEntry[]
-  stockHolds             StockHold[]
-  customers              Customer[]
-  deliveryLocations      DeliveryLocation[]
-  orders                 Order[]
-  orderItems             OrderItem[]
-  paymentTransactions    PaymentTransaction[]
+  memberships                 MerchantMembership[]
+  roles                       Role[]
+  products                    Product[]
+  inventoryBalances           InventoryBalance[]
+  inventoryLedgerEntries      InventoryLedgerEntry[]
+  stockHolds                  StockHold[]
+  customers                   Customer[]
+  deliveryLocations           DeliveryLocation[]
+  orders                      Order[]
+  orderItems                  OrderItem[]
+  paymentTransactions         PaymentTransaction[]
+  paymentVerificationAttempts PaymentVerificationAttempt[]
 
   @@index([status], map: "merchants_status_idx")
   @@map("merchants")
@@ -294,31 +318,33 @@ model Order {
 }
 
 model PaymentTransaction {
-  id                    String                   @id(map: "payment_transactions_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
-  merchantId            String                   @map("merchant_id") @db.Uuid
-  orderId               String                   @map("order_id") @db.Uuid
+  id                    String                     @id(map: "payment_transactions_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  merchantId            String                     @map("merchant_id") @db.Uuid
+  orderId               String                     @map("order_id") @db.Uuid
   method                PaymentMethod
-  status                PaymentTransactionStatus @default(REPORTED)
+  status                PaymentTransactionStatus   @default(REPORTED)
+  verificationSource    PaymentVerificationSource? @map("verification_source")
   amount                BigInt
-  currency              String                   @db.Char(3)
-  payerPhone            String?                  @map("payer_phone") @db.VarChar(13)
-  providerReference     String?                  @map("provider_reference") @db.VarChar(160)
-  merchantReference     String?                  @map("merchant_reference") @db.VarChar(160)
-  note                  String?                  @db.VarChar(500)
-  reportedAt            DateTime                 @map("reported_at") @db.Timestamptz(3)
-  verificationPendingAt DateTime?                @map("verification_pending_at") @db.Timestamptz(3)
-  verifiedAt            DateTime?                @map("verified_at") @db.Timestamptz(3)
-  rejectedAt            DateTime?                @map("rejected_at") @db.Timestamptz(3)
-  failedAt              DateTime?                @map("failed_at") @db.Timestamptz(3)
-  reversedAt            DateTime?                @map("reversed_at") @db.Timestamptz(3)
-  refundedAt            DateTime?                @map("refunded_at") @db.Timestamptz(3)
-  idempotencyKey        String                   @map("idempotency_key") @db.VarChar(128)
-  requestHash           String                   @map("request_hash") @db.Char(64)
-  createdAt             DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  currency              String                     @db.Char(3)
+  payerPhone            String?                    @map("payer_phone") @db.VarChar(13)
+  providerReference     String?                    @map("provider_reference") @db.VarChar(160)
+  merchantReference     String?                    @map("merchant_reference") @db.VarChar(160)
+  note                  String?                    @db.VarChar(500)
+  reportedAt            DateTime                   @map("reported_at") @db.Timestamptz(3)
+  verificationPendingAt DateTime?                  @map("verification_pending_at") @db.Timestamptz(3)
+  verifiedAt            DateTime?                  @map("verified_at") @db.Timestamptz(3)
+  rejectedAt            DateTime?                  @map("rejected_at") @db.Timestamptz(3)
+  failedAt              DateTime?                  @map("failed_at") @db.Timestamptz(3)
+  reversedAt            DateTime?                  @map("reversed_at") @db.Timestamptz(3)
+  refundedAt            DateTime?                  @map("refunded_at") @db.Timestamptz(3)
+  idempotencyKey        String                     @map("idempotency_key") @db.VarChar(128)
+  requestHash           String                     @map("request_hash") @db.Char(64)
+  createdAt             DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "payment_transactions_merchant_id_fkey")
-  order    Order    @relation(fields: [merchantId, orderId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "payment_transactions_merchant_id_order_id_fkey")
+  merchant             Merchant                     @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "payment_transactions_merchant_id_fkey")
+  order                Order                        @relation(fields: [merchantId, orderId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "payment_transactions_merchant_id_order_id_fkey")
+  verificationAttempts PaymentVerificationAttempt[]
 
   @@unique([merchantId, id], map: "payment_transactions_merchant_id_id_key")
   @@unique([merchantId, idempotencyKey], map: "payment_transactions_merchant_id_idempotency_key_key")
@@ -326,6 +352,38 @@ model PaymentTransaction {
   @@index([merchantId, orderId, status], map: "payment_transactions_merchant_order_status_idx")
   @@index([merchantId, orderId, method], map: "payment_transactions_merchant_order_method_idx")
   @@map("payment_transactions")
+}
+
+model PaymentVerificationAttempt {
+  id                        String                           @id(map: "payment_verification_attempts_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  merchantId                String                           @map("merchant_id") @db.Uuid
+  paymentTransactionId      String                           @map("payment_transaction_id") @db.Uuid
+  provider                  PaymentProvider
+  status                    PaymentVerificationAttemptStatus @default(PENDING)
+  providerReferenceSnapshot String?                          @map("provider_reference_snapshot") @db.VarChar(160)
+  payerPhoneSnapshot        String                           @map("payer_phone_snapshot") @db.VarChar(13)
+  amountSnapshot            BigInt                           @map("amount_snapshot")
+  currencySnapshot          String                           @map("currency_snapshot") @db.Char(3)
+  providerTransactionId     String?                          @map("provider_transaction_id") @db.VarChar(160)
+  providerStatusCode        String?                          @map("provider_status_code") @db.VarChar(80)
+  providerStatusText        String?                          @map("provider_status_text") @db.VarChar(240)
+  failureCode               String?                          @map("failure_code") @db.VarChar(80)
+  failureMessage            String?                          @map("failure_message") @db.VarChar(500)
+  requestedAt               DateTime                         @map("requested_at") @db.Timestamptz(3)
+  completedAt               DateTime?                        @map("completed_at") @db.Timestamptz(3)
+  idempotencyKey            String                           @map("idempotency_key") @db.VarChar(128)
+  requestHash               String                           @map("request_hash") @db.Char(64)
+  createdAt                 DateTime                         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                 DateTime                         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  merchant           Merchant           @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "payment_verification_attempts_merchant_id_fkey")
+  paymentTransaction PaymentTransaction @relation(fields: [merchantId, paymentTransactionId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "payment_verification_attempts_merchant_payment_fkey")
+
+  @@unique([merchantId, id], map: "payment_verification_attempts_merchant_id_id_key")
+  @@unique([merchantId, idempotencyKey], map: "payment_verification_attempts_merchant_idempotency_key_key")
+  @@index([merchantId, paymentTransactionId, createdAt, id], map: "payment_verification_attempts_merchant_payment_created_id_idx")
+  @@index([merchantId, paymentTransactionId, status], map: "payment_verification_attempts_merchant_payment_status_idx")
+  @@map("payment_verification_attempts")
 }
 
 model OrderItem {

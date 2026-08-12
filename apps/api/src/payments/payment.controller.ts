@@ -23,6 +23,11 @@ import { RequirePermission } from '../authorization/require-permission.decorator
 import { orderIdSchema } from '../orders/order.schema';
 import { PAYMENT_PERMISSIONS } from './payment-permissions';
 import { paymentListQuerySchema } from './payment-query.schema';
+import { ProviderVerificationService } from './provider-verification.service';
+import {
+  providerVerificationBodySchema,
+  verificationAttemptListQuerySchema,
+} from './provider-verification.schema';
 import {
   paymentIdempotencyKeySchema,
   paymentIdSchema,
@@ -44,6 +49,8 @@ function noStore(response: PaymentHttpResponse): void {
 export class PaymentController {
   public constructor(
     @Inject(PaymentService) private readonly service: PaymentService,
+    @Inject(ProviderVerificationService)
+    private readonly providerVerification: ProviderVerificationService,
   ) {}
 
   @Get('payments')
@@ -147,6 +154,55 @@ export class PaymentController {
     @Res({ passthrough: true }) response: PaymentHttpResponse,
   ) {
     return this.transition(context, orderId, paymentId, 'REJECTED', response);
+  }
+
+  @Post('payments/:paymentId/provider-verify')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission(PAYMENT_PERMISSIONS.MANAGE)
+  public async providerVerify(
+    @CurrentMerchantContext() context: ResolvedMerchantContext,
+    @Param('orderId') orderId: string,
+    @Param('paymentId') paymentId: string,
+    @Headers('idempotency-key') key: unknown,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: PaymentHttpResponse,
+  ) {
+    const parsedKey = paymentIdempotencyKeySchema.safeParse(key);
+    const parsedBody = providerVerificationBodySchema.safeParse(body);
+    if (!parsedKey.success || !parsedBody.success) {
+      throw new BadRequestException('Invalid provider verification request.');
+    }
+    const result = await this.providerVerification.verify(
+      context,
+      this.parseOrderId(orderId),
+      this.parsePaymentId(paymentId),
+      parsedKey.data,
+    );
+    noStore(response);
+    return result;
+  }
+
+  @Get('payments/:paymentId/verification-attempts')
+  @RequirePermission(PAYMENT_PERMISSIONS.READ)
+  public async verificationAttempts(
+    @CurrentMerchantContext() context: ResolvedMerchantContext,
+    @Param('orderId') orderId: string,
+    @Param('paymentId') paymentId: string,
+    @Query() query: unknown,
+    @Res({ passthrough: true }) response: PaymentHttpResponse,
+  ) {
+    const parsedQuery = verificationAttemptListQuerySchema.safeParse(query);
+    if (!parsedQuery.success) {
+      throw new BadRequestException('Invalid verification attempt query.');
+    }
+    const result = await this.providerVerification.list(
+      context,
+      this.parseOrderId(orderId),
+      this.parsePaymentId(paymentId),
+      parsedQuery.data,
+    );
+    noStore(response);
+    return result;
   }
 
   @Get('payment-summary')

@@ -52,3 +52,9 @@ The response-only status vocabulary is `UNPAID`, `PARTIALLY_PAID`, `PAID`, `OVER
 ## B7.2 and later boundary
 
 B7.1 adds no MTN or Airtel API calls, webhooks, automatic verification, screenshot upload, provider settlement, reconciliation, COD settlement, rider cash, delivery collection, receipt issuance, refund command, wallet, credit, retry worker, scheduler, queue, Redis authority, audit, or outbox. Those capabilities require separately reviewed later stages.
+
+## B7.2 provider-verification extension
+
+B7.2 adds nullable MANUAL/PROVIDER `verificationSource`, tenant-safe immutable provider-verification attempts, and explicit provider-verify/attempt-history routes. Existing B7.1 VERIFIED records are backfilled as MANUAL. Manual and exact provider verification contribute identically to the existing verified-only summary.
+
+The provider adapter is invoked between two short database transactions, so no Payment row lock spans provider I/O. Production has no configured live adapter and fails safely without claiming verification. Provider lookup failures remain attempt evidence and never imply Payment FAILED or REJECTED. See [MOBILE_MONEY_PROVIDER_VERIFICATION.md](MOBILE_MONEY_PROVIDER_VERIFICATION.md).

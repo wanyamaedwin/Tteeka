@@ -19,6 +19,7 @@ export interface PaymentTransactionRecord {
   readonly orderId: string;
   readonly method: PaymentMethod;
   readonly status: PaymentTransactionStatus;
+  readonly verificationSource: 'MANUAL' | 'PROVIDER' | null;
   readonly amount: bigint;
   readonly currency: string;
   readonly payerPhone: string | null;

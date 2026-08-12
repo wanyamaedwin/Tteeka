@@ -133,6 +133,9 @@ async function cleanup() {
   });
   const merchantIds = merchants.map(({ id }) => id);
   const userIds = users.map(({ id }) => id);
+  await client.paymentVerificationAttempt.deleteMany({
+    where: { merchantId: { in: merchantIds } },
+  });
   await client.paymentTransaction.deleteMany({
     where: { merchantId: { in: merchantIds } },
   });
@@ -220,6 +223,7 @@ void test('HTTP reporting, manual lifecycle, list/detail, and derived summaries 
   assert.equal(verified.status, 200);
   const verifiedBody = (await verified.json()) as Record<string, unknown>;
   assert.equal(verifiedBody.status, 'VERIFIED');
+  assert.equal(verifiedBody.verificationSource, 'MANUAL');
   const firstVerifiedAt = verifiedBody.verifiedAt;
   const verifyReplay = (await (
     await call(
@@ -513,5 +517,222 @@ void test('payment permissions are exact and tenant/order targets are concealed'
       )
     ).status,
     404,
+  );
+});
+
+void test('provider verification is unavailable by default while Attempt history remains exact and private', async () => {
+  const reader = await actor([PAYMENT_PERMISSIONS.READ]);
+  const manager = await actor([PAYMENT_PERMISSIONS.MANAGE]);
+  const orderReader = await actor([ORDER_PERMISSIONS.READ]);
+  const unprivileged = await actor([]);
+  const managerOrder = await order(manager.merchant.id);
+  const readerOrder = await order(reader.merchant.id);
+  const orderReaderOrder = await order(orderReader.merchant.id);
+  const unprivilegedOrder = await order(unprivileged.merchant.id);
+  const paymentResponse = await call(
+    manager.merchant.id,
+    managerOrder.id,
+    manager.token,
+    'payments',
+    {
+      method: 'POST',
+      key: 'provider-route-payment',
+      body: {
+        method: 'MTN_MOMO',
+        amount: '40000',
+        payerPhone: '0712345678',
+        providerReference: 'route-ref',
+      },
+    },
+  );
+  const payment = (await paymentResponse.json()) as Record<string, unknown>;
+  const providerPath = `payments/${String(payment.id)}/provider-verify`;
+  assert.equal(
+    (
+      await call(
+        manager.merchant.id,
+        managerOrder.id,
+        undefined,
+        providerPath,
+        { method: 'POST', key: 'provider-unauthenticated' },
+      )
+    ).status,
+    401,
+  );
+  assert.equal(
+    (
+      await call(
+        reader.merchant.id,
+        readerOrder.id,
+        manager.token,
+        providerPath,
+        { method: 'POST', key: 'provider-no-membership' },
+      )
+    ).status,
+    403,
+  );
+  const unavailable = await call(
+    manager.merchant.id,
+    managerOrder.id,
+    manager.token,
+    providerPath,
+    { method: 'POST', key: 'provider-route-attempt' },
+  );
+  assert.equal(unavailable.status, 503);
+  assert.equal(
+    (
+      await call(
+        manager.merchant.id,
+        managerOrder.id,
+        manager.token,
+        providerPath,
+        { method: 'POST', key: 'provider-route-attempt' },
+      )
+    ).status,
+    503,
+  );
+  assert.equal(
+    await client.paymentVerificationAttempt.count({
+      where: { paymentTransactionId: String(payment.id) },
+    }),
+    1,
+  );
+  const managerHistory = `payments/${String(payment.id)}/verification-attempts`;
+  assert.equal(
+    (
+      await call(
+        manager.merchant.id,
+        managerOrder.id,
+        manager.token,
+        managerHistory,
+      )
+    ).status,
+    403,
+  );
+
+  const readerPayment = await client.paymentTransaction.create({
+    data: {
+      merchantId: reader.merchant.id,
+      orderId: readerOrder.id,
+      method: 'AIRTEL_MONEY',
+      amount: 40_000n,
+      currency: 'UGX',
+      payerPhone: '+256712345678',
+      providerReference: 'reader-ref',
+      reportedAt: new Date(),
+      idempotencyKey: randomUUID(),
+      requestHash: '9'.repeat(64),
+    },
+  });
+  const readerAttempt = await client.paymentVerificationAttempt.create({
+    data: {
+      merchantId: reader.merchant.id,
+      paymentTransactionId: readerPayment.id,
+      provider: 'AIRTEL_MONEY',
+      status: 'NOT_VERIFIED',
+      providerReferenceSnapshot: 'reader-ref',
+      payerPhoneSnapshot: '+256712345678',
+      amountSnapshot: 40_000n,
+      currencySnapshot: 'UGX',
+      providerStatusCode: 'NOT_FOUND',
+      providerStatusText: 'No matching transaction',
+      requestedAt: new Date(Date.now() - 1000),
+      completedAt: new Date(),
+      idempotencyKey: randomUUID(),
+      requestHash: '8'.repeat(64),
+    },
+  });
+  const readerHistory = `payments/${readerPayment.id}/verification-attempts?status=NOT_VERIFIED&page=1&pageSize=20`;
+  const otherReaderOrder = await order(reader.merchant.id);
+  const historyResponse = await call(
+    reader.merchant.id,
+    readerOrder.id,
+    reader.token,
+    readerHistory,
+  );
+  assert.equal(historyResponse.status, 200);
+  const history = (await historyResponse.json()) as {
+    items: Record<string, unknown>[];
+    total: number;
+  };
+  assert.equal(history.total, 1);
+  assert.equal(history.items[0]?.id, readerAttempt.id);
+  const serialized = JSON.stringify(history).toLowerCase();
+  for (const privateField of [
+    'idempotencykey',
+    'requesthash',
+    'payerphonesnapshot',
+    'amountsnapshot',
+    'currencysnapshot',
+    'providerreferencesnapshot',
+  ]) {
+    assert.equal(serialized.includes(privateField), false);
+  }
+  assert.equal(
+    (
+      await call(
+        reader.merchant.id,
+        readerOrder.id,
+        reader.token,
+        `payments/${readerPayment.id}/provider-verify`,
+        { method: 'POST', key: 'reader-denied' },
+      )
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await call(
+        orderReader.merchant.id,
+        orderReaderOrder.id,
+        orderReader.token,
+        `payments/${readerPayment.id}/verification-attempts`,
+      )
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await call(
+        unprivileged.merchant.id,
+        unprivilegedOrder.id,
+        unprivileged.token,
+        `payments/${readerPayment.id}/verification-attempts`,
+      )
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await call(
+        reader.merchant.id,
+        managerOrder.id,
+        reader.token,
+        `payments/${readerPayment.id}/verification-attempts`,
+      )
+    ).status,
+    404,
+  );
+  assert.equal(
+    (
+      await call(
+        reader.merchant.id,
+        otherReaderOrder.id,
+        reader.token,
+        `payments/${readerPayment.id}/verification-attempts`,
+      )
+    ).status,
+    404,
+  );
+  assert.equal(
+    (
+      await call(
+        reader.merchant.id,
+        readerOrder.id,
+        undefined,
+        `payments/${readerPayment.id}/verification-attempts`,
+      )
+    ).status,
+    401,
   );
 });

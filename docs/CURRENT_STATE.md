@@ -382,3 +382,11 @@ B7.1 adds the twelfth migration and an independent, Merchant/Order-owned `Paymen
 Seven guarded Order-scoped routes bring production to 64 routes. Exact independent `payments.read` and `payments.manage` grants bring the code-owned catalog to 19 keys. Reporting is Merchant-idempotent, money remains BIGINT-safe decimal-string data, and payment responses omit keys and hashes.
 
 Order payment state is derived rather than persisted. Only VERIFIED transactions contribute to verified total, amount due, and UNPAID/PARTIALLY_PAID/PAID/OVERPAID status. Payment operations do not change Order lifecycle, physical Inventory, ledger entries, or StockHolds, and cancellation retains payment history. Provider APIs, webhooks, automatic verification, settlement/reconciliation, refund commands, delivery/COD collection, receipts, workers, audit, and outbox remain absent. See [PAYMENT_TRANSACTIONS.md](PAYMENT_TRANSACTIONS.md).
+
+# B7.2 — Mobile Money provider verification foundation
+
+B7.2 adds the thirteenth migration, MANUAL/PROVIDER verification source, and immutable tenant-safe `PaymentVerificationAttempt` evidence with PENDING, VERIFIED, NOT_VERIFIED, and FAILED states. Existing VERIFIED records are backfilled to MANUAL.
+
+Provider verification uses one provider-neutral adapter port and registry plus a three-phase transaction design: snapshot PENDING evidence under a Payment lock, invoke the adapter without database locks, then lock Payment/Attempt to apply the result. Exact provider/amount/currency evidence may verify a Payment; mismatch and technical failure leave its financial state unchanged. Production configures no live adapter or credentials.
+
+One manage command and one read-history route bring production to 66 routes while the exact Permission catalog remains 19 keys. There are no webhooks, schedulers, settlement/reconciliation, refunds, provider credentials, live MTN/Airtel calls, Order transitions, or Inventory/Hold effects. See [MOBILE_MONEY_PROVIDER_VERIFICATION.md](MOBILE_MONEY_PROVIDER_VERIFICATION.md).

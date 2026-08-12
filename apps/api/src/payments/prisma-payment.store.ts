@@ -20,6 +20,7 @@ const paymentSelect = {
   orderId: true,
   method: true,
   status: true,
+  verificationSource: true,
   amount: true,
   currency: true,
   payerPhone: true,
@@ -213,7 +214,11 @@ export class PrismaPaymentStore implements PaymentStore {
         }
         return transaction.paymentTransaction.update({
           where: { id: paymentId },
-          data: { status: target, verifiedAt: now },
+          data: {
+            status: target,
+            verificationSource: 'MANUAL',
+            verifiedAt: now,
+          },
           select: paymentSelect,
         });
       }

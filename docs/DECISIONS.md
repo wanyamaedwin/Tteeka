@@ -1581,3 +1581,18 @@
 10. `payments.read` and `payments.manage` are exact independent Permissions; neither requires or implies an Orders Permission.
 11. Cancellation or abandonment retains payment history and performs no automatic reversal or refund.
 12. Provider APIs, webhooks, automatic verification, settlement/reconciliation, refund commands, COD/delivery collection, receipts, workers, audit, and outbox remain outside B7.1.
+
+# B7.2 provider-verification decisions
+
+1. Payment status remains provider-neutral; verification source records MANUAL or PROVIDER without provider-specific financial statuses.
+2. Existing B7.1 VERIFIED rows are unambiguously backfilled to MANUAL.
+3. Provider attempts are immutable Merchant/Payment-owned evidence with separate PENDING, VERIFIED, NOT_VERIFIED, and FAILED lifecycle.
+4. Attempt FAILED never implies Payment FAILED, and NOT_VERIFIED never auto-rejects a Payment.
+5. Provider verification accepts no caller amount, currency, phone, method, or provider; persisted Payment facts are authoritative.
+6. Exact provider, amount, and currency matching is mandatory, with no tolerance or conversion.
+7. A three-phase design commits the PENDING snapshot before adapter invocation and applies evidence afterward, avoiding database locks during provider I/O.
+8. Payment-row locking serializes manual verify, provider verify, and reject; the first successful verification source cannot be overwritten.
+9. Attempt idempotency is Merchant-local over every immutable snapshot and suppresses duplicate adapter calls.
+10. Production registers no live adapter or credentials in B7.2 and returns a bounded unavailable result rather than false verification.
+11. `payments.manage` protects provider verify and `payments.read` protects history; no Permission or implicit hierarchy is added.
+12. Webhooks, polling, retries, settlement, reconciliation, refunds, live adapters, and raw provider payload storage remain deferred.
