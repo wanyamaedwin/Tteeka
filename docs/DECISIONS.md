@@ -1524,3 +1524,16 @@
 13. Existing exact inventory read/manage grants cover the five routes; the catalog remains 13 keys.
 14. PostgreSQL remains reservation authority; no Redis cache or process lock is used.
 15. Order ownership, sale consumption, partial release, fulfillment states, audit/outbox, and generic B14 idempotency remain deferred.
+
+# B5 customer and delivery-location decisions
+
+1. Customer is a Merchant-owned operational identity separate from global authentication User and staff Membership.
+2. Uganda phone input is normalized through the shared utility; canonical Customer phone is unique per Merchant across lifecycle states.
+3. Customer name is nullable; phone is the required identity anchor, without copying phone into name.
+4. Customer and DeliveryLocation each use only ACTIVE and ARCHIVED, expose no hard delete, and have independent lifecycles.
+5. DeliveryLocation models Uganda-first area, landmark, contact phone, instructions, and optional map URL rather than a generic postal Address.
+6. Location contact phone may differ from Customer phone and duplicate-looking locations remain valid.
+7. Direct Merchant ownership plus a composite Merchant/Customer foreign key makes location ownership database-enforceable and tenant safe.
+8. There is no default location, geocoding, coordinate, delivery zone, fee, rider, or external map integration in B5.
+9. `customers.read` and `customers.manage` are exact independent Permissions; synchronization remains explicit and grants remain unchanged.
+10. Future Orders will own any immutable customer or delivery snapshots; B5 does not link Customers to StockHolds or introduce Orders/Reservations.

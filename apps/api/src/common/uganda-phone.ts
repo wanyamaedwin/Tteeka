@@ -11,6 +11,8 @@ export function normalizeUgandaPhone(value: string): string | null {
     nationalNumber = compact.slice(3);
   } else if (compact.startsWith('0')) {
     nationalNumber = compact.slice(1);
+  } else if (compact.startsWith('7')) {
+    nationalNumber = compact;
   } else {
     return null;
   }

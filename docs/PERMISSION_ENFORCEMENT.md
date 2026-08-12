@@ -102,3 +102,7 @@ The existing Merchant-context endpoint remains an inspection endpoint rather tha
 # B4.1 inventory permissions
 
 `inventory.read` protects inventory list, detail, and ledger history. `inventory.manage` protects receipts and manual positive/negative adjustments. They are exact independent permissions: neither implies the other, and changes are evaluated from current database grants without re-login.
+
+# B5 customer permissions
+
+`customers.read` protects all Customer and nested DeliveryLocation GET routes. `customers.manage` protects all Customer and nested DeliveryLocation POST/PATCH routes. A manage-only caller may execute a write when the IDs and payload are already known but receives 403 from list/detail routes; manage does not imply read. Both use the standard Session, Merchant-context, and exact-Permission guard chain. The explicit catalog now has 15 keys, while `permissions:sync` remains manual and creates no Role grants. See [CUSTOMERS_DELIVERY_LOCATIONS.md](CUSTOMERS_DELIVERY_LOCATIONS.md).

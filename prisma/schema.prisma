@@ -83,6 +83,20 @@ enum StockHoldStatus {
   @@map("stock_hold_status")
 }
 
+enum CustomerStatus {
+  ACTIVE
+  ARCHIVED
+
+  @@map("customer_status")
+}
+
+enum DeliveryLocationStatus {
+  ACTIVE
+  ARCHIVED
+
+  @@map("delivery_location_status")
+}
+
 model Merchant {
   id          String         @id(map: "merchants_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
   displayName String         @map("display_name") @db.VarChar(160)
@@ -101,9 +115,52 @@ model Merchant {
   inventoryBalances      InventoryBalance[]
   inventoryLedgerEntries InventoryLedgerEntry[]
   stockHolds             StockHold[]
+  customers              Customer[]
+  deliveryLocations      DeliveryLocation[]
 
   @@index([status], map: "merchants_status_idx")
   @@map("merchants")
+}
+
+model Customer {
+  id         String         @id(map: "customers_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  merchantId String         @map("merchant_id") @db.Uuid
+  name       String?        @db.VarChar(160)
+  phone      String         @db.VarChar(13)
+  status     CustomerStatus @default(ACTIVE)
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  merchant          Merchant           @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "customers_merchant_id_fkey")
+  deliveryLocations DeliveryLocation[]
+
+  @@unique([merchantId, id], map: "customers_merchant_id_id_key")
+  @@unique([merchantId, phone], map: "customers_merchant_id_phone_key")
+  @@index([merchantId, status], map: "customers_merchant_id_status_idx")
+  @@index([merchantId, name], map: "customers_merchant_id_name_idx")
+  @@map("customers")
+}
+
+model DeliveryLocation {
+  id           String                 @id(map: "delivery_locations_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  merchantId   String                 @map("merchant_id") @db.Uuid
+  customerId   String                 @map("customer_id") @db.Uuid
+  area         String                 @db.VarChar(120)
+  landmark     String                 @db.VarChar(240)
+  phone        String                 @db.VarChar(13)
+  instructions String?                @db.VarChar(500)
+  mapPinUrl    String?                @map("map_pin_url") @db.VarChar(2048)
+  status       DeliveryLocationStatus @default(ACTIVE)
+  createdAt    DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "delivery_locations_merchant_id_fkey")
+  customer Customer @relation(fields: [merchantId, customerId], references: [merchantId, id], onDelete: Restrict, onUpdate: Cascade, map: "delivery_locations_merchant_id_customer_id_fkey")
+
+  @@unique([merchantId, id], map: "delivery_locations_merchant_id_id_key")
+  @@index([merchantId, customerId, status], map: "delivery_locations_merchant_customer_status_idx")
+  @@index([merchantId, customerId, createdAt, id], map: "delivery_locations_merchant_customer_created_id_idx")
+  @@map("delivery_locations")
 }
 
 model Product {

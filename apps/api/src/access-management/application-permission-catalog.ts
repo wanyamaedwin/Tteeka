@@ -1,6 +1,7 @@
 import { MERCHANT_PERMISSIONS } from '../merchants/merchant-permissions';
 import { CATALOGUE_PERMISSIONS } from '../catalogue/catalogue-permissions';
 import { INVENTORY_PERMISSIONS } from '../inventory/inventory-permissions';
+import { CUSTOMER_PERMISSIONS } from '../customers/customer-permissions';
 import { ACCESS_MANAGEMENT_PERMISSIONS } from './access-management-permissions';
 
 export interface ApplicationPermissionCatalogEntry {
@@ -20,6 +21,14 @@ export const APPLICATION_PERMISSION_CATALOG = [
   {
     key: CATALOGUE_PERMISSIONS.READ,
     description: 'Read merchant product catalogue',
+  },
+  {
+    key: CUSTOMER_PERMISSIONS.MANAGE,
+    description: 'Manage merchant customers and delivery locations',
+  },
+  {
+    key: CUSTOMER_PERMISSIONS.READ,
+    description: 'Read merchant customers and delivery locations',
   },
   {
     key: INVENTORY_PERMISSIONS.MANAGE,

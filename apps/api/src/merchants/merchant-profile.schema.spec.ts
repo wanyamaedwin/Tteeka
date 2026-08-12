@@ -44,6 +44,7 @@ void test('normalizes supported Uganda phone forms and accepts null', () => {
     '+256772123456',
     '256772123456',
     '0772123456',
+    '772123456',
     '0772 123 456',
     '0772-123-456',
   ]) {
@@ -57,7 +58,7 @@ void test('normalizes supported Uganda phone forms and accepts null', () => {
 });
 
 void test('rejects malformed merchant phone input', () => {
-  for (const phone of ['', '772123456', '+255772123456', '+256abc123456']) {
+  for (const phone of ['', '72123456', '+255772123456', '+256abc123456']) {
     assert.equal(
       merchantProfilePatchSchema.safeParse({ phone }).success,
       false,

@@ -297,7 +297,7 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - Session renewal, rotation, sliding expiration, retention cleanup, or Redis Session storage
 - a global authentication guard or global public/private route metadata
 - Merchant context, Membership resolution, Role resolution, or Permission resolution during authentication itself
-- business routes beyond the implemented Merchant, access-management, Product, and ProductVariant/pricing surfaces
+- business routes beyond the implemented Merchant, access-management, catalogue/pricing, inventory/holds, and customer/delivery-location surfaces
 - multi-Permission requirement metadata or any/all route composition
 - CSRF defense for future authenticated state-changing browser requests
 - password-reset tokens or password-reset workflow
@@ -319,7 +319,7 @@ The API does not eagerly connect Prisma during bootstrap. A PostgreSQL outage th
 - discounts, promotions, scheduled/bulk pricing, tax/VAT, or FX conversion
 - Product or Variant images/media
 - Category or Brand CRUD/tables, public storefront, or customer-facing Product visibility
-- customers
+- customer authentication accounts, customer analytics, loyalty, or WhatsApp conversations
 - orders or payments
 - cash on delivery (COD) settings or behavior
 - order-owned holds, partial release, or stock-hold policy settings
@@ -350,3 +350,11 @@ Physical AVAILABLE and the three B4.1 movement types remain unchanged. Holds nev
 Not implemented: order/checkout ownership, sale consumption, partial release, warehouse/bin/transfer, fulfillment states, a scheduler/queue, notifications, Redis stock caching, inventory audit/outbox, or generic B14 idempotency.
 
 See [STOCK_HOLDS.md](STOCK_HOLDS.md) for the full contract.
+
+# B5 — Customers and delivery locations
+
+B5 adds Merchant-owned Customer identities and reusable DeliveryLocations in the ninth migration. Customer and location phones use the shared Uganda normalization rules; Customer phone uniqueness is per Merchant and survives archive. Both models have independent ACTIVE/ARCHIVED lifecycles and no hard-delete APIs.
+
+Eight guarded routes provide strict create, list, detail, and PATCH operations. Customer lists support search, exact normalized phone and status filters, and bounded pagination; location lists are Customer-scoped with status filtering and bounded pagination. `customers.read` and `customers.manage` are independent exact grants, expanding production to 48 routes and 15 Permission keys. Tenant-safe composite ownership and generic not-found behavior prevent cross-Merchant and cross-Customer disclosure.
+
+B5 adds no User linkage, Order or Reservation model, StockHold customer field, default address, postal-address abstraction, delivery zone/fee/rider, WhatsApp records, analytics, or Redis cache. See [CUSTOMERS_DELIVERY_LOCATIONS.md](CUSTOMERS_DELIVERY_LOCATIONS.md).

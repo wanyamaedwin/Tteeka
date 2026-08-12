@@ -10,6 +10,7 @@ for (const input of [
   '+256 772 123 456',
   '0772-123-456',
   '(0772) 123 456',
+  '772123456',
 ] as const) {
   void test(`normalizes supported Uganda phone form ${input}`, () => {
     assert.equal(normalizeUgandaPhone(input), '+256772123456');
@@ -18,7 +19,6 @@ for (const input of [
 
 for (const input of [
   '',
-  '772123456',
   '+255772123456',
   '+25677212345',
   '+2567721234567',
