@@ -37,14 +37,14 @@ after(async () => {
   await disconnectPrismaClient(client);
 });
 
-void test('sync creates all nineteen catalog records and is idempotent', async () => {
+void test('sync creates all twenty-one catalog records and is idempotent', async () => {
   await syncApplicationPermissions(client);
   await syncApplicationPermissions(client);
   assert.equal(
     await client.permission.count({
       where: { key: { in: [...APPLICATION_PERMISSION_KEYS] } },
     }),
-    19,
+    21,
   );
   for (const entry of APPLICATION_PERMISSION_CATALOG) {
     const record = await client.permission.findUniqueOrThrow({

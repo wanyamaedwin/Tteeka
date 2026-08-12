@@ -62,3 +62,7 @@ The provider adapter is invoked between two short database transactions, so no P
 ## B7.3A MTN transport boundary
 
 B7.3A adds a standalone sandbox-only MTN Collections RequestToPay client and developer smoke command without connecting it to PaymentTransaction, provider-verification attempts, or public routes. MTN's 202 response means asynchronous acceptance only, never Payment VERIFIED. Sandbox EUR values are synthetic provider-contract inputs and never convert or mutate Tteeka Order/Payment currency. See [MTN_MOMO_COLLECTIONS_SANDBOX.md](MTN_MOMO_COLLECTIONS_SANDBOX.md).
+
+## B8.1 Delivery boundary
+
+B8.1 adds DeliveryJobs and DeliveryAttempts without introducing a payment prerequisite or copying a payment summary. A job may be created and operated for a CONFIRMED Order regardless of unpaid, partially paid, or verified-payment state. Delivery creation, ready, dispatch, cancel, and delivered/failed attempts never mutate PaymentTransactions or their derived summary; Delivery also implements no COD or rider-cash collection. See [DELIVERY_JOBS_ATTEMPTS.md](DELIVERY_JOBS_ATTEMPTS.md).

@@ -1611,3 +1611,18 @@
 10. The developer smoke CLI is explicit, synthetic, one-shot, database-independent, and excluded from startup, build, CI, and automated tests.
 11. Sandbox EUR values never convert or mutate Tteeka UGX Orders or Payments.
 12. B7.3A adds no public route, Permission, Prisma change, domain write, callback receiver, polling worker, Airtel work, settlement, or reconciliation.
+
+# B8.1 delivery decisions
+
+1. DeliveryJob is an independent operational aggregate; its lifecycle never acts as Order, Payment, StockHold, or Inventory authority.
+2. A confirmed Order may own at most one Merchant-scoped DeliveryJob, enforced by database uniqueness.
+3. Creation locks the Order so eligibility serializes with Order cancellation.
+4. Delivery snapshots copy only the frozen Order recipient and location facts; mutable Customer and reusable DeliveryLocation records are not read.
+5. PENDING, READY, DISPATCHED, DELIVERED, FAILED, and CANCELLED are the exact B8.1 states, with no rider-assignment or reverse-logistics states.
+6. Success and failure are recorded only as immutable DeliveryAttempts that atomically terminate a DISPATCHED job.
+7. Failure classification is a bounded enum; notes are optional context and never drive lifecycle state.
+8. Creation and attempt idempotency are Merchant-local deterministic request fingerprints, while ready, dispatch, and cancel are naturally idempotent desired-state commands.
+9. DeliveryJob row locks serialize every lifecycle mutation and attempt-number allocation; the Order row lock serializes job creation with cancellation.
+10. `deliveries.read` and `deliveries.manage` are exact independent Permissions and require no Orders or Payments grant.
+11. Delivery does not require payment, active Holds, or Inventory inspection and creates no fulfilment, financial, reservation, balance, or ledger side effect.
+12. Zones, fees, scheduling, riders, COD, proof of delivery, returns, workers, outbox, Order fulfilment, and Inventory consumption remain deferred to later reviewed stages.

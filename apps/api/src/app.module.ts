@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { AccessManagementModule } from './access-management/access-management.module';
 import { ConfigurationModule } from './configuration/configuration.module';
 import { DatabaseModule } from './database/database.module';
+import { DeliveryModule } from './deliveries/delivery.module';
 import { AuthModule } from './auth/auth.module';
 import { AuthorizationModule } from './authorization/authorization.module';
 import { CatalogueModule } from './catalogue/catalogue.module';
@@ -27,6 +28,7 @@ import { PaymentModule } from './payments/payment.module';
     OrderModule,
     CustomerModule,
     PaymentModule,
+    DeliveryModule,
   ],
 })
 export class AppModule {}

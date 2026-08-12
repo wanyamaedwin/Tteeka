@@ -398,3 +398,11 @@ B7.3A adds a standalone MTN-specific infrastructure client for the official sand
 The client uses UUID-v4 stable request identity, a bounded HTTP timeout, no automatic RequestToPay retry, `ACCEPTED`/`REJECTED`/`UNKNOWN` submission semantics, exact `PENDING`/`SUCCESSFUL`/`FAILED` status mapping, bounded errors/evidence, secret redaction, and an in-memory single-flight expiring token cache. A manual smoke CLI can obtain a token, submit one synthetic request, or query one supplied reference without database access or polling.
 
 B7.3A adds no route, Permission, Prisma migration/model/enum, production MTN URL/toggle, Airtel work, callback receiver, worker, scheduler, settlement, reconciliation, Payment/Order/Inventory/Hold side effect, or B7.2 registry adapter. Counts remain 13 migrations, 66 routes, and 19 Permission keys. See [MTN_MOMO_COLLECTIONS_SANDBOX.md](MTN_MOMO_COLLECTIONS_SANDBOX.md).
+
+# B8.1 — Delivery jobs and attempts
+
+B8.1 adds the fourteenth migration and an independent, Merchant/Order-owned `DeliveryJob` plus append-only `DeliveryAttempt` evidence. A confirmed Order with a complete frozen delivery snapshot may own at most one job. Creation copies only the Order-owned recipient and location snapshots and never consults mutable Customer or DeliveryLocation state.
+
+Eight guarded routes bring production to 74 routes. Exact independent `deliveries.read` and `deliveries.manage` grants bring the explicit catalog to 21 keys. PostgreSQL Order and DeliveryJob locks serialize creation against Order cancellation and every Delivery lifecycle race. Delivery success or failure is recorded atomically through an idempotent attempt.
+
+Delivery status remains independent from Order, Payment, StockHold, and Inventory state. B8.1 neither fulfils an Order nor requires payment, changes physical inventory or ledger history, or consumes/releases/extends Holds. It adds no zone, fee, schedule, rider, COD, proof of delivery, return, worker, or outbox behavior. See [DELIVERY_JOBS_ATTEMPTS.md](DELIVERY_JOBS_ATTEMPTS.md).

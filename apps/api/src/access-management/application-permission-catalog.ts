@@ -2,6 +2,7 @@ import { MERCHANT_PERMISSIONS } from '../merchants/merchant-permissions';
 import { CATALOGUE_PERMISSIONS } from '../catalogue/catalogue-permissions';
 import { INVENTORY_PERMISSIONS } from '../inventory/inventory-permissions';
 import { CUSTOMER_PERMISSIONS } from '../customers/customer-permissions';
+import { DELIVERY_PERMISSIONS } from '../deliveries/delivery-permissions';
 import { ORDER_PERMISSIONS } from '../orders/order-permissions';
 import { PAYMENT_PERMISSIONS } from '../payments/payment-permissions';
 import { ACCESS_MANAGEMENT_PERMISSIONS } from './access-management-permissions';
@@ -31,6 +32,14 @@ export const APPLICATION_PERMISSION_CATALOG = [
   {
     key: CUSTOMER_PERMISSIONS.READ,
     description: 'Read merchant customers and delivery locations',
+  },
+  {
+    key: DELIVERY_PERMISSIONS.MANAGE,
+    description: 'Manage merchant delivery jobs and attempts',
+  },
+  {
+    key: DELIVERY_PERMISSIONS.READ,
+    description: 'Read merchant delivery jobs and attempts',
   },
   {
     key: INVENTORY_PERMISSIONS.MANAGE,
