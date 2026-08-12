@@ -3,6 +3,72 @@ import { z } from 'zod';
 const POSTGRES_PROTOCOLS = new Set(['postgres:', 'postgresql:']);
 const REDIS_PROTOCOLS = new Set(['redis:', 'rediss:']);
 
+const optionalEnvironmentValue = z.preprocess(
+  (value) => (value === '' ? undefined : value),
+  z.string().optional(),
+);
+
+const mtnMomoCollectionsEnvironmentSchema = z
+  .object({
+    MTN_MOMO_COLLECTIONS_ENABLED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
+    MTN_MOMO_COLLECTIONS_API_USER: optionalEnvironmentValue,
+    MTN_MOMO_COLLECTIONS_API_KEY: optionalEnvironmentValue,
+    MTN_MOMO_COLLECTIONS_SUBSCRIPTION_KEY: optionalEnvironmentValue,
+    MTN_MOMO_COLLECTIONS_CALLBACK_URL: optionalEnvironmentValue,
+    MTN_MOMO_COLLECTIONS_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(100)
+      .max(30_000)
+      .default(10_000),
+  })
+  .superRefine((value, context) => {
+    if (!value.MTN_MOMO_COLLECTIONS_ENABLED) return;
+
+    for (const field of [
+      'MTN_MOMO_COLLECTIONS_API_USER',
+      'MTN_MOMO_COLLECTIONS_API_KEY',
+      'MTN_MOMO_COLLECTIONS_SUBSCRIPTION_KEY',
+    ] as const) {
+      const credential = value[field];
+      if (credential === undefined || credential.trim().length === 0) {
+        context.addIssue({
+          code: 'custom',
+          path: [field],
+          message: `${field} is required when MTN Collections is enabled`,
+        });
+      }
+    }
+
+    const apiUser = value.MTN_MOMO_COLLECTIONS_API_USER;
+    if (
+      apiUser !== undefined &&
+      !z.uuid({ version: 'v4' }).safeParse(apiUser).success
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['MTN_MOMO_COLLECTIONS_API_USER'],
+        message: 'MTN_MOMO_COLLECTIONS_API_USER must be a UUID v4',
+      });
+    }
+
+    const callbackUrl = value.MTN_MOMO_COLLECTIONS_CALLBACK_URL;
+    if (callbackUrl !== undefined) {
+      try {
+        if (new URL(callbackUrl).protocol !== 'https:') throw new Error();
+      } catch {
+        context.addIssue({
+          code: 'custom',
+          path: ['MTN_MOMO_COLLECTIONS_CALLBACK_URL'],
+          message: 'MTN_MOMO_COLLECTIONS_CALLBACK_URL must be an HTTPS URL',
+        });
+      }
+    }
+  });
+
 function hasAllowedProtocol(
   value: string,
   protocols: ReadonlySet<string>,
@@ -58,6 +124,17 @@ const environmentSchema = z.object({
 export type RawEnvironment = Readonly<Record<string, string | undefined>>;
 export type NodeEnvironment = z.infer<typeof environmentSchema>['NODE_ENV'];
 
+export type MtnMomoCollectionsConfig =
+  | Readonly<{ enabled: false }>
+  | Readonly<{
+      enabled: true;
+      apiUser: string;
+      apiKey: string;
+      subscriptionKey: string;
+      callbackUrl?: string;
+      timeoutMs: number;
+    }>;
+
 export interface AppConfig {
   readonly nodeEnv: NodeEnvironment;
   readonly apiPort: number;
@@ -66,6 +143,7 @@ export interface AppConfig {
   readonly infraHealthTimeoutMs: number;
   readonly sessionTtlSeconds: number;
   readonly sessionTouchIntervalSeconds: number;
+  readonly mtnMomoCollections: MtnMomoCollectionsConfig;
 }
 
 export class ConfigurationError extends Error {
@@ -75,17 +153,45 @@ export class ConfigurationError extends Error {
   }
 }
 
+function configurationMessages(error: z.ZodError): string[] {
+  return error.issues.map((issue) => {
+    const field = issue.path.join('.') || 'environment';
+    return `${field}: ${issue.message}`;
+  });
+}
+
+export function loadMtnMomoCollectionsConfig(
+  environment: RawEnvironment,
+): MtnMomoCollectionsConfig {
+  const result = mtnMomoCollectionsEnvironmentSchema.safeParse(environment);
+
+  if (!result.success) {
+    throw new ConfigurationError(configurationMessages(result.error));
+  }
+
+  if (!result.data.MTN_MOMO_COLLECTIONS_ENABLED) {
+    return Object.freeze({ enabled: false });
+  }
+
+  const callbackUrl = result.data.MTN_MOMO_COLLECTIONS_CALLBACK_URL;
+  return Object.freeze({
+    enabled: true,
+    apiUser: result.data.MTN_MOMO_COLLECTIONS_API_USER!,
+    apiKey: result.data.MTN_MOMO_COLLECTIONS_API_KEY!,
+    subscriptionKey: result.data.MTN_MOMO_COLLECTIONS_SUBSCRIPTION_KEY!,
+    ...(callbackUrl === undefined ? {} : { callbackUrl }),
+    timeoutMs: result.data.MTN_MOMO_COLLECTIONS_TIMEOUT_MS,
+  });
+}
+
 export function loadConfig(environment: RawEnvironment): AppConfig {
   const result = environmentSchema.safeParse(environment);
 
   if (!result.success) {
-    const messages = result.error.issues.map((issue) => {
-      const field = issue.path.join('.') || 'environment';
-      return `${field}: ${issue.message}`;
-    });
-
-    throw new ConfigurationError(messages);
+    throw new ConfigurationError(configurationMessages(result.error));
   }
+
+  const mtnMomoCollections = loadMtnMomoCollectionsConfig(environment);
 
   return Object.freeze({
     nodeEnv: result.data.NODE_ENV,
@@ -95,5 +201,6 @@ export function loadConfig(environment: RawEnvironment): AppConfig {
     infraHealthTimeoutMs: result.data.INFRA_HEALTH_TIMEOUT_MS,
     sessionTtlSeconds: result.data.SESSION_TTL_SECONDS,
     sessionTouchIntervalSeconds: result.data.SESSION_TOUCH_INTERVAL_SECONDS,
+    mtnMomoCollections,
   });
 }

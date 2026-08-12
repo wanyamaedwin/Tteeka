@@ -58,3 +58,7 @@ B7.1 adds no MTN or Airtel API calls, webhooks, automatic verification, screensh
 B7.2 adds nullable MANUAL/PROVIDER `verificationSource`, tenant-safe immutable provider-verification attempts, and explicit provider-verify/attempt-history routes. Existing B7.1 VERIFIED records are backfilled as MANUAL. Manual and exact provider verification contribute identically to the existing verified-only summary.
 
 The provider adapter is invoked between two short database transactions, so no Payment row lock spans provider I/O. Production has no configured live adapter and fails safely without claiming verification. Provider lookup failures remain attempt evidence and never imply Payment FAILED or REJECTED. See [MOBILE_MONEY_PROVIDER_VERIFICATION.md](MOBILE_MONEY_PROVIDER_VERIFICATION.md).
+
+## B7.3A MTN transport boundary
+
+B7.3A adds a standalone sandbox-only MTN Collections RequestToPay client and developer smoke command without connecting it to PaymentTransaction, provider-verification attempts, or public routes. MTN's 202 response means asynchronous acceptance only, never Payment VERIFIED. Sandbox EUR values are synthetic provider-contract inputs and never convert or mutate Tteeka Order/Payment currency. See [MTN_MOMO_COLLECTIONS_SANDBOX.md](MTN_MOMO_COLLECTIONS_SANDBOX.md).

@@ -14,6 +14,7 @@ const CONFIG: AppConfig = Object.freeze({
   infraHealthTimeoutMs: 2000,
   sessionTtlSeconds: 43_200,
   sessionTouchIntervalSeconds: 300,
+  mtnMomoCollections: { enabled: false as const },
 });
 
 void test('database service constructs from validated AppConfig', () => {

@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { ConfigurationError, loadConfig, type RawEnvironment } from './config';
+import {
+  ConfigurationError,
+  loadConfig,
+  loadMtnMomoCollectionsConfig,
+  type RawEnvironment,
+} from './config';
 
 const VALID_ENVIRONMENT: RawEnvironment = {
   NODE_ENV: 'development',
@@ -38,7 +43,71 @@ void test('valid development configuration succeeds with defaults', () => {
   assert.equal(config.infraHealthTimeoutMs, 2000);
   assert.equal(config.sessionTtlSeconds, 43_200);
   assert.equal(config.sessionTouchIntervalSeconds, 300);
+  assert.deepEqual(config.mtnMomoCollections, { enabled: false });
 });
+
+void test('MTN Collections is disabled by default without credentials', () => {
+  assert.deepEqual(loadMtnMomoCollectionsConfig({}), { enabled: false });
+});
+
+void test('enabled MTN Collections requires every credential without exposing values', () => {
+  const secret = 'never-print-this-api-key';
+  assert.throws(
+    () =>
+      loadMtnMomoCollectionsConfig({
+        MTN_MOMO_COLLECTIONS_ENABLED: 'true',
+        MTN_MOMO_COLLECTIONS_API_KEY: secret,
+      }),
+    (error: unknown) => {
+      assert.ok(error instanceof ConfigurationError);
+      assert.match(error.message, /MTN_MOMO_COLLECTIONS_API_USER/);
+      assert.match(error.message, /MTN_MOMO_COLLECTIONS_SUBSCRIPTION_KEY/);
+      assert.doesNotMatch(error.message, new RegExp(secret));
+      return true;
+    },
+  );
+});
+
+void test('enabled MTN Collections accepts only sandbox-safe validated configuration', () => {
+  assert.deepEqual(
+    loadMtnMomoCollectionsConfig({
+      MTN_MOMO_COLLECTIONS_ENABLED: 'true',
+      MTN_MOMO_COLLECTIONS_API_USER: '2f209631-07d4-4254-8d6a-bd0f1ef78538',
+      MTN_MOMO_COLLECTIONS_API_KEY: 'synthetic-api-key',
+      MTN_MOMO_COLLECTIONS_SUBSCRIPTION_KEY: 'synthetic-subscription-key',
+      MTN_MOMO_COLLECTIONS_CALLBACK_URL: 'https://sandbox.example.test/mtn',
+      MTN_MOMO_COLLECTIONS_TIMEOUT_MS: '5000',
+    }),
+    {
+      enabled: true,
+      apiUser: '2f209631-07d4-4254-8d6a-bd0f1ef78538',
+      apiKey: 'synthetic-api-key',
+      subscriptionKey: 'synthetic-subscription-key',
+      callbackUrl: 'https://sandbox.example.test/mtn',
+      timeoutMs: 5000,
+    },
+  );
+});
+
+for (const [field, value] of [
+  ['MTN_MOMO_COLLECTIONS_API_USER', 'not-a-uuid'],
+  ['MTN_MOMO_COLLECTIONS_CALLBACK_URL', 'http://example.test/mtn'],
+  ['MTN_MOMO_COLLECTIONS_TIMEOUT_MS', '30001'],
+] as const) {
+  void test(`rejects unsafe MTN Collections ${field}`, () => {
+    expectConfigurationError(
+      {
+        ...VALID_ENVIRONMENT,
+        MTN_MOMO_COLLECTIONS_ENABLED: 'true',
+        MTN_MOMO_COLLECTIONS_API_USER: '2f209631-07d4-4254-8d6a-bd0f1ef78538',
+        MTN_MOMO_COLLECTIONS_API_KEY: 'synthetic-api-key',
+        MTN_MOMO_COLLECTIONS_SUBSCRIPTION_KEY: 'synthetic-subscription-key',
+        [field]: value,
+      },
+      field,
+    );
+  });
+}
 
 void test('accepts a custom Session TTL', () => {
   assert.equal(

@@ -53,6 +53,8 @@ Payment permissions remain independent from each other and from Order permission
 
 Only VERIFIED PaymentTransactions contribute to the existing derived Order payment summary; MANUAL and PROVIDER contribute equally and are never double-counted. Provider attempts do not change Order status, StockHolds, InventoryBalance, InventoryLedgerEntry, or cancellation behavior. Cancellation retains provider-verified history and performs no automatic refund.
 
-## Deferred B7.3 boundary
+## B7.3A remains separate
 
-B7.2 adds no MTN/Airtel credentials, URLs, HTTP clients, live adapters, webhooks/callbacks, signatures, scheduler, polling, retry queue, settlement, reconciliation, provider/merchant payouts, refund execution, COD settlement, delivery, fulfilment, receipts, worker processing, audit, or outbox. Live provider adapters require a separately reviewed B7.3 stage.
+B7.3A adds a standalone, sandbox-only MTN Collections RequestToPay transport client. It is not registered in this provider-verification registry and cannot reinterpret an arbitrary customer-reported `providerReference` as an MTN RequestToPay `X-Reference-Id`. Normal production wiring still uses `EmptyProviderVerificationRegistry` for both providers.
+
+B7.2 still adds no live provider adapter, webhook/callback, signature validation, scheduler, polling, retry queue, settlement, reconciliation, provider/merchant payout, refund execution, COD settlement, delivery, fulfilment, receipt, worker processing, audit, or outbox. See [MTN_MOMO_COLLECTIONS_SANDBOX.md](MTN_MOMO_COLLECTIONS_SANDBOX.md).

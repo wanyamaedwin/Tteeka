@@ -21,6 +21,7 @@
     "infra:status": "docker compose ps",
     "infra:up": "docker compose up -d --wait",
     "lint": "eslint .",
+    "mtn:sandbox:smoke": "npm run build --workspace @tteeka/config && node --env-file-if-exists=.env --import tsx apps/api/src/payments/providers/mtn/mtn-sandbox-smoke.cli.ts",
     "permissions:sync": "node --env-file-if-exists=.env --import tsx apps/api/src/access-management/permission-sync.cli.ts",
     "prebuild": "npm run prisma:generate",
     "predb:check": "npm run prisma:generate",

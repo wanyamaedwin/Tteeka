@@ -17,6 +17,7 @@ const CONFIG: AppConfig = {
   infraHealthTimeoutMs: 2000,
   sessionTtlSeconds: 43_200,
   sessionTouchIntervalSeconds: 300,
+  mtnMomoCollections: { enabled: false },
 };
 
 function session(

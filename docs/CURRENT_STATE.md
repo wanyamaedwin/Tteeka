@@ -390,3 +390,11 @@ B7.2 adds the thirteenth migration, MANUAL/PROVIDER verification source, and imm
 Provider verification uses one provider-neutral adapter port and registry plus a three-phase transaction design: snapshot PENDING evidence under a Payment lock, invoke the adapter without database locks, then lock Payment/Attempt to apply the result. Exact provider/amount/currency evidence may verify a Payment; mismatch and technical failure leave its financial state unchanged. Production configures no live adapter or credentials.
 
 One manage command and one read-history route bring production to 66 routes while the exact Permission catalog remains 19 keys. There are no webhooks, schedulers, settlement/reconciliation, refunds, provider credentials, live MTN/Airtel calls, Order transitions, or Inventory/Hold effects. See [MOBILE_MONEY_PROVIDER_VERIFICATION.md](MOBILE_MONEY_PROVIDER_VERIFICATION.md).
+
+# B7.3A — MTN MoMo Collections client and sandbox contract
+
+B7.3A adds a standalone MTN-specific infrastructure client for the official sandbox token, asynchronous Collections `v1_0` RequestToPay, and one-shot status contracts. It fixes the base URL to MTN's sandbox, target environment to `sandbox`, and synthetic provider currency to EUR; configuration defaults disabled and requires validated local credentials only when explicitly enabled.
+
+The client uses UUID-v4 stable request identity, a bounded HTTP timeout, no automatic RequestToPay retry, `ACCEPTED`/`REJECTED`/`UNKNOWN` submission semantics, exact `PENDING`/`SUCCESSFUL`/`FAILED` status mapping, bounded errors/evidence, secret redaction, and an in-memory single-flight expiring token cache. A manual smoke CLI can obtain a token, submit one synthetic request, or query one supplied reference without database access or polling.
+
+B7.3A adds no route, Permission, Prisma migration/model/enum, production MTN URL/toggle, Airtel work, callback receiver, worker, scheduler, settlement, reconciliation, Payment/Order/Inventory/Hold side effect, or B7.2 registry adapter. Counts remain 13 migrations, 66 routes, and 19 Permission keys. See [MTN_MOMO_COLLECTIONS_SANDBOX.md](MTN_MOMO_COLLECTIONS_SANDBOX.md).

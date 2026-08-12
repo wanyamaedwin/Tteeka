@@ -29,6 +29,7 @@ function config(nodeEnv: AppConfig['nodeEnv']): AppConfig {
     infraHealthTimeoutMs: 2000,
     sessionTtlSeconds: 43_200,
     sessionTouchIntervalSeconds: 300,
+    mtnMomoCollections: { enabled: false },
   };
 }
 

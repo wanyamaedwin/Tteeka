@@ -1596,3 +1596,18 @@
 10. Production registers no live adapter or credentials in B7.2 and returns a bounded unavailable result rather than false verification.
 11. `payments.manage` protects provider verify and `payments.read` protects history; no Permission or implicit hierarchy is added.
 12. Webhooks, polling, retries, settlement, reconciliation, refunds, live adapters, and raw provider payload storage remain deferred.
+
+# B7.3A MTN Collections transport decisions
+
+1. B7.3A implements only official MTN sandbox Collections token, RequestToPay, and one-shot status contracts under an MTN-specific infrastructure boundary.
+2. The MTN client remains separate from B7.2 customer-reported provider verification; `EmptyProviderVerificationRegistry` remains production authority.
+3. Sandbox base URL, `sandbox` target environment, and EUR are fixed constants; no production URL or go-live toggle exists.
+4. Request identity is caller-visible UUID v4 and must remain stable after ambiguous transport outcomes; RequestToPay is never automatically retried.
+5. HTTP 202 is asynchronous acceptance only. Submission results are ACCEPTED, REJECTED, or UNKNOWN, and UNKNOWN never implies rejection.
+6. Status results preserve the official PENDING, SUCCESSFUL, and FAILED vocabulary; 404 and technical transport failures remain separate.
+7. Tokens are memory-only, expire according to `expires_in`, refresh with a safety margin, and use process-local single-flight refresh without distributed storage.
+8. Configuration defaults disabled; all proven credentials are required only when explicitly enabled, and optional callbacks must be HTTPS.
+9. Provider bodies and headers remain inside the adapter; only bounded normalized evidence/errors cross the boundary and no secret is logged or returned.
+10. The developer smoke CLI is explicit, synthetic, one-shot, database-independent, and excluded from startup, build, CI, and automated tests.
+11. Sandbox EUR values never convert or mutate Tteeka UGX Orders or Payments.
+12. B7.3A adds no public route, Permission, Prisma change, domain write, callback receiver, polling worker, Airtel work, settlement, or reconciliation.
