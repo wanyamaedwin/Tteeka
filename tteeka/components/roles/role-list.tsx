@@ -3,7 +3,6 @@
 import { MoreHorizontal, ShieldCheck, ShieldOff } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
-import { getPermissionMeta } from '@/lib/permissions'
 import type { RolePreview, StaffMemberPreview } from '@/lib/mock-staff'
 
 // ---------------------------------------------------------------------------
@@ -12,7 +11,7 @@ import type { RolePreview, StaffMemberPreview } from '@/lib/mock-staff'
 
 type RoleListProps = {
   roles: RolePreview[]
-  staffList: StaffMemberPreview[]
+  staffList?: StaffMemberPreview[]
   canManage: boolean
   onSelect: (role: RolePreview) => void
   onEdit: (role: RolePreview) => void
@@ -198,12 +197,12 @@ function ActionMenu({
 function RoleTableRow({
   role, staffList, canManage, onSelect, onEdit, onManagePermissions, onDisable, onReactivate,
 }: {
-  role: RolePreview; staffList: StaffMemberPreview[]; canManage: boolean
+  role: RolePreview; staffList?: StaffMemberPreview[]; canManage: boolean
   onSelect: (r: RolePreview) => void; onEdit: (r: RolePreview) => void
   onManagePermissions: (r: RolePreview) => void; onDisable: (r: RolePreview) => void
   onReactivate: (r: RolePreview) => void
 }) {
-  const assignedCount = staffList.filter((m) => m.roleIds.includes(role.id)).length
+  const assignedCount = staffList?.filter((m) => m.roleIds.includes(role.id)).length
   return (
     <tr className="transition-colors hover:bg-secondary/20">
       <td className="px-5 py-4">
@@ -215,7 +214,9 @@ function RoleTableRow({
       <td className="px-5 py-4"><RoleStatusBadge status={role.status} /></td>
       <td className="px-5 py-4"><PermissionCountBadge role={role} /></td>
       <td className="px-5 py-4 text-sm text-muted-foreground">
-        {assignedCount > 0 ? `${assignedCount} staff` : <span className="italic">None</span>}
+        {assignedCount === undefined
+          ? <span className="italic">Unavailable</span>
+          : assignedCount > 0 ? `${assignedCount} staff` : <span className="italic">None</span>}
       </td>
       {canManage && (
         <td className="px-5 py-4 text-right">
@@ -234,12 +235,12 @@ function RoleTableRow({
 function RoleCard({
   role, staffList, canManage, onSelect, onEdit, onManagePermissions, onDisable, onReactivate,
 }: {
-  role: RolePreview; staffList: StaffMemberPreview[]; canManage: boolean
+  role: RolePreview; staffList?: StaffMemberPreview[]; canManage: boolean
   onSelect: (r: RolePreview) => void; onEdit: (r: RolePreview) => void
   onManagePermissions: (r: RolePreview) => void; onDisable: (r: RolePreview) => void
   onReactivate: (r: RolePreview) => void
 }) {
-  const assignedCount = staffList.filter((m) => m.roleIds.includes(role.id)).length
+  const assignedCount = staffList?.filter((m) => m.roleIds.includes(role.id)).length
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-start gap-3">
@@ -266,7 +267,9 @@ function RoleCard({
           <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
             <PermissionCountBadge role={role} />
             <span>·</span>
-            <span>{assignedCount > 0 ? `${assignedCount} assigned staff` : 'No assigned staff'}</span>
+            <span>{assignedCount === undefined
+              ? 'Staff count unavailable'
+              : assignedCount > 0 ? `${assignedCount} assigned staff` : 'No assigned staff'}</span>
           </div>
         </div>
       </div>

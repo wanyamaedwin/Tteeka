@@ -36,12 +36,16 @@ export function RoleAssignmentDialog({
   const panelRef = useRef<HTMLDivElement>(null)
 
   // Selected IDs — initialised to current membership roleIds
-  const [selected, setSelected] = useState<Set<string>>(new Set(member.roleIds))
+  const activeRoleIds = new Set(allRoles.filter((role) => role.status === 'ACTIVE').map(({ id }) => id))
+  const [selected, setSelected] = useState<Set<string>>(
+    new Set(member.roleIds.filter((id) => activeRoleIds.has(id))),
+  )
 
   // Re-sync when member changes (e.g. different staff opened)
   useEffect(() => {
-    setSelected(new Set(member.roleIds))
-  }, [member.membershipId, member.roleIds])
+    const activeIds = new Set(allRoles.filter((role) => role.status === 'ACTIVE').map(({ id }) => id))
+    setSelected(new Set(member.roleIds.filter((id) => activeIds.has(id))))
+  }, [allRoles, member.membershipId, member.roleIds])
 
   const activeRoles = allRoles.filter((r) => r.status === 'ACTIVE')
   const disabledAssigned = allRoles.filter(
@@ -218,7 +222,7 @@ export function RoleAssignmentDialog({
                       <input type="checkbox" checked disabled className="mt-0.5 size-4 rounded" aria-label={`${role.name} (disabled role, cannot be reassigned)`} />
                       <span className="min-w-0 flex-1">
                         <span className="block text-sm font-medium line-through">{role.name}</span>
-                        <span className="mt-0.5 block text-xs text-destructive">Role disabled — cannot be newly assigned</span>
+                        <span className="mt-0.5 block text-xs text-destructive">Role disabled — saving another assignment change removes this historical link</span>
                       </span>
                     </div>
                   ))}

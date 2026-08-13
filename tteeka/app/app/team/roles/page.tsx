@@ -1,10 +1,12 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ShieldAlert, ShieldPlus, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AppShell, PageHeader } from '@/components/app-shell'
 import { AccessDenied } from '@/components/workspace-access'
+import { ErrorState, LoadingSkeleton } from '@/components/async-state'
+import { useAuth } from '@/components/auth-provider'
 import { RoleList } from '@/components/roles/role-list'
 import { RoleDetailPanel } from '@/components/roles/role-detail-panel'
 import { RoleFormDialog } from '@/components/roles/role-form-dialog'
@@ -15,6 +17,19 @@ import { useMerchantWorkspace } from '@/components/merchant-workspace-provider'
 import { useToast } from '@/components/ui/toast'
 import { isMockMode } from '@/lib/config'
 import { generateRoleId, type RolePreview } from '@/lib/mock-staff'
+import type { StaffMemberPreview } from '@/lib/mock-staff'
+import { ApiError } from '@/lib/api/errors'
+import {
+  createRole,
+  listPermissionCatalogue,
+  listRoles,
+  listStaff,
+  replaceRolePermissions,
+  updateRole,
+  type RoleResponse,
+  type StaffResponse,
+} from '@/lib/api/access-management'
+import { presentPermissionCatalogue, type PermissionMetadata } from '@/lib/permissions'
 
 // ---------------------------------------------------------------------------
 // Permission constants
@@ -41,18 +56,132 @@ export default function RolesPage() {
 function RolesPageContent() {
   const {
     workspace,
-    rolesList,
-    staffList,
+    rolesList: mockRoles,
+    staffList: mockStaff,
     hasPermission,
     addMockRole,
     updateMockRole,
     updateMockRoleStatus,
     updateMockRolePermissions,
+    refreshWorkspace,
   } = useMerchantWorkspace()
+  const { clearUser } = useAuth()
   const { toast } = useToast()
+  const mockMode = isMockMode()
 
   const canRead = hasPermission(PERM_ROLES_READ)
   const canManage = hasPermission(PERM_ROLES_MANAGE)
+  const canReadStaff = hasPermission('STAFF_READ')
+  const [liveRoles, setLiveRoles] = useState<RolePreview[]>([])
+  const [liveStaff, setLiveStaff] = useState<StaffMemberPreview[] | undefined>(undefined)
+  const [livePermissions, setLivePermissions] = useState<PermissionMetadata[]>([])
+  const [liveLoading, setLiveLoading] = useState(!mockMode && canRead)
+  const [liveError, setLiveError] = useState<ApiError | null>(null)
+
+  const loadRoles = useCallback(async () => {
+    if (mockMode || !canRead) {
+      setLiveRoles([])
+      setLiveStaff(undefined)
+      setLivePermissions([])
+      setLiveLoading(false)
+      setLiveError(null)
+      return
+    }
+    setLiveLoading(true)
+    setLiveError(null)
+    try {
+      const [rolesResult, catalogResult, staffResult] = await Promise.all([
+        listRoles(workspace.id),
+        listPermissionCatalogue(workspace.id),
+        canReadStaff ? listStaff(workspace.id) : Promise.resolve(null),
+      ])
+      setLiveRoles(rolesResult.roles.map((role) => mapRole(workspace.id, role)))
+      setLivePermissions(presentPermissionCatalogue(catalogResult.permissions))
+      setLiveStaff(staffResult?.staff.map(mapStaff))
+    } catch (cause) {
+      const error = cause instanceof ApiError
+        ? cause
+        : new ApiError({ message: 'Unable to load roles.' })
+      setLiveError(error)
+      if (error.status === 401) clearUser()
+    } finally {
+      setLiveLoading(false)
+    }
+  }, [canRead, canReadStaff, clearUser, mockMode, workspace.id])
+
+  useEffect(() => { void loadRoles() }, [loadRoles])
+
+  const rolesList = mockMode ? mockRoles : liveRoles
+  const staffList = mockMode ? mockStaff : liveStaff
+
+  function storeRole(role: RolePreview) {
+    setLiveRoles((current) => {
+      const existing = current.some(({ id }) => id === role.id)
+      return existing
+        ? current.map((item) => item.id === role.id ? role : item)
+        : [...current, role]
+    })
+  }
+
+  async function create(name: string, description: string) {
+    if (mockMode) {
+      await new Promise((resolve) => setTimeout(resolve, 350))
+      const role: RolePreview = {
+        id: generateRoleId(), merchantId: workspace.id, name,
+        description: description || undefined, status: 'ACTIVE',
+        permissionKeys: [], createdAt: new Date().toISOString(),
+      }
+      addMockRole(role)
+      toast('Role created.')
+      return role
+    }
+    try {
+      const role = mapRole(workspace.id, await createRole(workspace.id, {
+        name,
+        ...(description ? { description } : {}),
+      }))
+      storeRole(role)
+      toast('Role created.')
+      return role
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 401) clearUser()
+      throw cause
+    }
+  }
+
+  async function patchRole(roleId: string, patch: { name?: string; description?: string | null; status?: 'ACTIVE' | 'DISABLED' }) {
+    if (mockMode) {
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      if (patch.status) updateMockRoleStatus(roleId, patch.status)
+      else updateMockRole(roleId, {
+        ...(patch.name === undefined ? {} : { name: patch.name }),
+        ...(patch.description === undefined ? {} : { description: patch.description ?? undefined }),
+      })
+      return
+    }
+    try {
+      storeRole(mapRole(workspace.id, await updateRole(workspace.id, roleId, patch)))
+      await refreshWorkspace()
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 401) clearUser()
+      throw cause
+    }
+  }
+
+  async function syncPermissions(roleId: string, keys: string[]) {
+    if (mockMode) {
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      updateMockRolePermissions(roleId, keys)
+      return
+    }
+    try {
+      storeRole(mapRole(workspace.id, await replaceRolePermissions(workspace.id, roleId, keys)))
+      await refreshWorkspace()
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 401) clearUser()
+      throw cause
+    }
+  }
 
   const isUnavailable =
     workspace.status !== 'ACTIVE' || workspace.membershipStatus !== 'ACTIVE'
@@ -75,24 +204,27 @@ function RolesPageContent() {
 
   // ── Manage-only (no read) ──────────────────────────────────────────────────
   if (!canRead && canManage) {
-    return <ManageOnlyRolesCard rolesList={rolesList} onAdd={async (name, description) => {
-      if (isMockMode()) {
-        await new Promise((r) => setTimeout(r, 350))
-        const newRole: RolePreview = {
-          id: generateRoleId(),
-          merchantId: workspace.id,
-          name,
-          description: description || undefined,
-          status: 'ACTIVE',
-          permissionKeys: [],
-          createdAt: new Date().toISOString(),
-        }
-        addMockRole(newRole)
-        toast('Role created.')
-        return { ok: true, role: newRole }
-      }
-      return { ok: false }
-    }} />
+    return <ManageOnlyRolesCard rolesList={rolesList} onAdd={async (name, description) => ({
+      ok: true,
+      role: await create(name, description),
+    })} />
+  }
+
+  if (!mockMode && liveLoading) return <LoadingSkeleton label="Loading roles" />
+  if (!mockMode && liveError?.status === 401) return <LoadingSkeleton label="Returning to sign in" />
+  if (!mockMode && liveError?.status === 403) {
+    return <AccessDenied title="You do not have access to Roles & Permissions." />
+  }
+  if (!mockMode && liveError) {
+    return (
+      <ErrorState
+        title="Unable to load roles."
+        description={liveError.isNetworkError
+          ? "We couldn't reach Tteeka. Check your connection and try again."
+          : 'Please try again.'}
+        onRetry={() => void loadRoles()}
+      />
+    )
   }
 
   // ── Full read (± manage) ───────────────────────────────────────────────────
@@ -100,46 +232,24 @@ function RolesPageContent() {
     <RolesReadView
       rolesList={rolesList}
       staffList={staffList}
+      permissionCatalogue={mockMode ? undefined : livePermissions}
       canManage={canManage}
       workspaceId={workspace.id}
-      onCreateRole={async (name, description) => {
-        if (!isMockMode()) return null
-        await new Promise((r) => setTimeout(r, 350))
-        const newRole: RolePreview = {
-          id: generateRoleId(),
-          merchantId: workspace.id,
-          name,
-          description: description || undefined,
-          status: 'ACTIVE',
-          permissionKeys: [],
-          createdAt: new Date().toISOString(),
-        }
-        addMockRole(newRole)
-        toast('Role created.')
-        return newRole
-      }}
+      onCreateRole={create}
       onUpdateRole={async (roleId, name, description) => {
-        if (!isMockMode()) return
-        await new Promise((r) => setTimeout(r, 300))
-        updateMockRole(roleId, { name, description: description || undefined })
+        await patchRole(roleId, { name, description: description || null })
         toast('Role updated.')
       }}
       onDisableRole={async (roleId) => {
-        if (!isMockMode()) return
-        await new Promise((r) => setTimeout(r, 300))
-        updateMockRoleStatus(roleId, 'DISABLED')
+        await patchRole(roleId, { status: 'DISABLED' })
         toast('Role disabled.')
       }}
       onReactivateRole={async (roleId) => {
-        if (!isMockMode()) return
-        await new Promise((r) => setTimeout(r, 300))
-        updateMockRoleStatus(roleId, 'ACTIVE')
+        await patchRole(roleId, { status: 'ACTIVE' })
         toast('Role reactivated.')
       }}
       onUpdatePermissions={async (roleId, keys) => {
-        if (!isMockMode()) return
-        await new Promise((r) => setTimeout(r, 300))
-        updateMockRolePermissions(roleId, keys)
+        await syncPermissions(roleId, keys)
         toast('Role permissions updated.')
       }}
     />
@@ -154,7 +264,8 @@ type TabId = 'roles' | 'catalogue'
 
 type RolesReadViewProps = {
   rolesList: RolePreview[]
-  staffList: ReturnType<typeof useMerchantWorkspace>['staffList']
+  staffList: StaffMemberPreview[] | undefined
+  permissionCatalogue?: readonly PermissionMetadata[]
   canManage: boolean
   workspaceId: string
   onCreateRole: (name: string, description: string) => Promise<RolePreview | null>
@@ -167,6 +278,7 @@ type RolesReadViewProps = {
 function RolesReadView({
   rolesList,
   staffList,
+  permissionCatalogue,
   canManage,
   onCreateRole,
   onUpdateRole,
@@ -190,6 +302,7 @@ function RolesReadView({
   const [reactivateRole, setReactivateRole] = useState<RolePreview | null>(null)
   const [permRole, setPermRole] = useState<RolePreview | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   // Post-create CTA state
   const [justCreated, setJustCreated] = useState<RolePreview | null>(null)
@@ -230,10 +343,13 @@ function RolesReadView({
 
   async function handleCreate(name: string, description: string) {
     setSubmitting(true)
+    setSubmitError(null)
     try {
       const created = await onCreateRole(name, description)
       setCreateOpen(false)
       if (created) setJustCreated(created)
+    } catch {
+      setSubmitError("We couldn't save this role.")
     } finally {
       setSubmitting(false)
     }
@@ -242,9 +358,12 @@ function RolesReadView({
   async function handleEdit(name: string, description: string) {
     if (!editRole) return
     setSubmitting(true)
+    setSubmitError(null)
     try {
       await onUpdateRole(editRole.id, name, description)
       setEditRole(null)
+    } catch {
+      setSubmitError("We couldn't save this role.")
     } finally {
       setSubmitting(false)
     }
@@ -257,6 +376,8 @@ function RolesReadView({
       await onDisableRole(disableRole.id)
       setDisableRole(null)
       if (detailRole?.id === disableRole.id) setDetailRole(null)
+    } catch {
+      toast("We couldn't save this role.", 'error')
     } finally {
       setSubmitting(false)
     }
@@ -269,6 +390,8 @@ function RolesReadView({
       await onReactivateRole(reactivateRole.id)
       setReactivateRole(null)
       if (detailRole?.id === reactivateRole.id) setDetailRole(null)
+    } catch {
+      toast("We couldn't save this role.", 'error')
     } finally {
       setSubmitting(false)
     }
@@ -280,6 +403,8 @@ function RolesReadView({
     try {
       await onUpdatePermissions(freshPermRole.id, keys)
       setPermRole(null)
+    } catch {
+      toast("We couldn't update these permissions.", 'error')
     } finally {
       setSubmitting(false)
     }
@@ -453,7 +578,7 @@ function RolesReadView({
       )}
 
       {/* ── Permission catalogue tab ────────────────────────────────────────── */}
-      {activeTab === 'catalogue' && <PermissionCatalogue />}
+      {activeTab === 'catalogue' && <PermissionCatalogue permissions={permissionCatalogue} />}
 
       {/* ── Dialogs ────────────────────────────────────────────────────────── */}
 
@@ -463,6 +588,7 @@ function RolesReadView({
           open={!!freshDetail}
           role={freshDetail}
           staffList={staffList}
+          permissions={permissionCatalogue}
           canManage={canManage}
           onClose={() => setDetailRole(null)}
           onEdit={(r) => { setDetailRole(null); setEditRole(r) }}
@@ -477,6 +603,7 @@ function RolesReadView({
         open={createOpen}
         mode="create"
         existingNames={existingNames}
+        submitError={submitError}
         submitting={submitting}
         onSave={handleCreate}
         onCancel={() => setCreateOpen(false)}
@@ -491,6 +618,7 @@ function RolesReadView({
             mode="edit"
             existingRole={fresh}
             existingNames={existingNames}
+            submitError={submitError}
             submitting={submitting}
             onSave={handleEdit}
             onCancel={() => setEditRole(null)}
@@ -504,7 +632,7 @@ function RolesReadView({
           open
           roleName={disableRole.name}
           action="disable"
-          assignedStaffCount={staffList.filter((m) => m.roleIds.includes(disableRole.id)).length}
+          assignedStaffCount={staffList?.filter((m) => m.roleIds.includes(disableRole.id)).length}
           submitting={submitting}
           onConfirm={handleDisable}
           onCancel={() => setDisableRole(null)}
@@ -517,7 +645,7 @@ function RolesReadView({
           open
           roleName={reactivateRole.name}
           action="reactivate"
-          assignedStaffCount={staffList.filter((m) => m.roleIds.includes(reactivateRole.id)).length}
+          assignedStaffCount={staffList?.filter((m) => m.roleIds.includes(reactivateRole.id)).length}
           submitting={submitting}
           onConfirm={handleReactivate}
           onCancel={() => setReactivateRole(null)}
@@ -530,6 +658,7 @@ function RolesReadView({
           open
           role={freshPermRole}
           submitting={submitting}
+          permissions={permissionCatalogue}
           onSave={handlePermSave}
           onCancel={() => setPermRole(null)}
         />
@@ -566,13 +695,17 @@ type ManageOnlyRolesCardProps = {
 function ManageOnlyRolesCard({ rolesList, onAdd }: ManageOnlyRolesCardProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const existingNames = rolesList.map((r) => r.name)
 
   async function handleCreate(name: string, description: string) {
     setSubmitting(true)
+    setSubmitError(null)
     try {
       await onAdd(name, description)
       setCreateOpen(false)
+    } catch {
+      setSubmitError("We couldn't save this role.")
     } finally {
       setSubmitting(false)
     }
@@ -613,9 +746,33 @@ function ManageOnlyRolesCard({ rolesList, onAdd }: ManageOnlyRolesCardProps) {
         mode="create"
         existingNames={existingNames}
         submitting={submitting}
+        submitError={submitError}
         onSave={handleCreate}
         onCancel={() => setCreateOpen(false)}
       />
     </>
   )
+}
+
+function mapRole(merchantId: string, role: RoleResponse): RolePreview {
+  return {
+    id: role.id,
+    merchantId,
+    name: role.name,
+    description: role.description ?? undefined,
+    status: role.status,
+    permissionKeys: role.permissions.map(({ key }) => key),
+  }
+}
+
+function mapStaff(record: StaffResponse): StaffMemberPreview {
+  return {
+    membershipId: record.id,
+    userId: record.user.id,
+    name: record.user.displayName,
+    phone: record.user.phone,
+    email: record.user.email ?? undefined,
+    membershipStatus: record.status,
+    roleIds: record.roles.map(({ id }) => id),
+  }
 }

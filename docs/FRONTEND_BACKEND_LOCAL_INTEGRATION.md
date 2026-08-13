@@ -143,6 +143,34 @@ Verified locally with a Merchant created through the real INT0.1C registration f
 
 An authenticated User with no ACTIVE Membership still stops at `/onboarding/workspace`; Profile and Settings are not mounted and make no Merchant request in that state. Staff/Roles, Catalogue, Inventory, Customers, Orders, Payments, and Deliveries live integration remain outside INT0.2A.
 
+## Live Staff and Roles (INT0.2B)
+
+The existing F3.2 Staff and F3.3 Roles pages use the frozen B2.2 access-management API directly in live mode:
+
+```text
+GET   /api/v1/merchants/:merchantId/staff
+POST  /api/v1/merchants/:merchantId/staff
+PATCH /api/v1/merchants/:merchantId/staff/:membershipId
+PUT   /api/v1/merchants/:merchantId/staff/:membershipId/roles
+GET   /api/v1/merchants/:merchantId/roles
+POST  /api/v1/merchants/:merchantId/roles
+PATCH /api/v1/merchants/:merchantId/roles/:roleId
+PUT   /api/v1/merchants/:merchantId/roles/:roleId/permissions
+GET   /api/v1/merchants/:merchantId/permissions
+```
+
+The exact permissions are `merchant.staff.read`, `merchant.staff.manage`, `merchant.roles.read`, and `merchant.roles.manage`. Each is independent: manage does not imply read, and Membership Role replacement requires `merchant.roles.manage`, not `merchant.staff.manage`. Merchant IDs come only from authenticated workspace context. Page-scoped API calls use the centralized cookie client with `credentials: include`, `cache: no-store`, bounded loading/errors, frozen 401 sign-in handling, distinct 403 access states, and no live-to-mock fallback.
+
+Staff creation accepts only a Uganda phone belonging to an existing ACTIVE global User and creates one ACTIVE MerchantMembership with no Roles. It does not create a User, PasswordCredential, password, or invitation, so a person without existing credentials cannot sign in merely because a Staff Membership was added. Duplicate ACTIVE or DISABLED Memberships return HTTP 409. Membership mutation supports only `ACTIVE`/`DISABLED`; no delete route exists. `PUT staff/:membershipId/roles` replaces the complete multiple-Role assignment set using ACTIVE same-Merchant Role IDs.
+
+Roles are created from `name` and optional `description`, start ACTIVE with no permissions, and can update only `name`, `description`, or `status`. ACTIVE/DISABLED lifecycle retains authorization links and there is no Role delete route. `PUT roles/:roleId/permissions` sends the complete desired permission-key set. The editor gets assignable keys from the real permission catalogue, currently 21 ACTIVE code-owned entries; frontend metadata supplies friendly presentation only, and newly exposed keys remain present in the desired state. Effective authorization still comes from fresh Merchant context (`MembershipRole -> RolePermission -> Permission`), never Role names.
+
+B2.2 has no Owner-name bypass, immutable-Owner rule, last-owner protection, or self-lockout prevention. The UI does not claim otherwise and mutable verification must use dedicated fictional local Staff and Roles. Context is explicitly refreshed after Role, RolePermission, MembershipRole, or Membership lifecycle writes; there is no polling. The authenticated zero-membership branch still stops at `/onboarding/workspace` before Staff, Role, or Permission-catalogue pages mount.
+
+The INT0.2B local walkthrough used newly registered fictional Users and a dedicated non-Owner Role. It verified add-by-existing-phone, generic rejection of an unknown phone, duplicate-Role HTTP 409 handling, Staff ACTIVE/DISABLED/ACTIVE persistence, exact multiple-Role assignment persistence, the 21-entry live Permission catalogue, and exact desired-state permission replacement with one key added and one removed. A dedicated Staff session proved that `merchant.settings.manage` did not imply `merchant.settings.read` (PATCH 200, GET 403), then immediately observed the replacement read-only grants (Profile and Settings GET 200; both PATCH 403). Hard refreshes retained the Staff, Role, assignment, lifecycle, and permission state. With the API process deliberately unavailable, the mounted Staff page showed its bounded live error and Retry state without mock data; Retry recovered after restart. Staff and Roles both rendered without page-level horizontal overflow at a 401 px near-mobile viewport, and the verification tabs reported no browser warning/error logs. The original Owner membership, Owner Role status, single Owner assignment, and all 21 Owner permissions remained unchanged in the dedicated test Merchant.
+
+INT0.2B leaves Staff invitations/account recovery, password administration, audit UI, Catalogue, Inventory, Customers, Orders, Payments, and Deliveries live integration pending. Explicit F3.2/F3.3 mock fixtures remain available only in mock mode.
+
 ## Verified INT0.1 boundary
 
 INT0.1C uses 15 applied migrations and preserves the frozen session and authorization architecture. Production onboarding does not use development confirmation variables, does not create a special Session path, does not expose credentials or request fingerprints, and does not silently continue with mock data when a live request fails.

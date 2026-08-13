@@ -9,6 +9,7 @@ import {
   type StaffMemberPreview,
 } from '@/lib/mock-staff'
 import { isMockMode } from '@/lib/config'
+import { ApiError } from '@/lib/api/errors'
 
 // ---------------------------------------------------------------------------
 // AddStaffDialog
@@ -27,12 +28,13 @@ type AddStaffDialogProps = {
   /** Existing membership phone numbers for conflict detection */
   existingPhones: string[]
   onAdd: (member: StaffMemberPreview) => void
+  onAddPhone?: (phone: string) => Promise<StaffMemberPreview>
   onClose: () => void
 }
 
 type FormState = 'idle' | 'submitting' | 'error-generic' | 'error-conflict'
 
-export function AddStaffDialog({ open, existingPhones, onAdd, onClose }: AddStaffDialogProps) {
+export function AddStaffDialog({ open, existingPhones, onAdd, onAddPhone, onClose }: AddStaffDialogProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -66,8 +68,17 @@ export function AddStaffDialog({ open, existingPhones, onAdd, onClose }: AddStaf
     setFormState('submitting')
 
     if (!isMockMode()) {
-      // Live mode: no-op — API integration deferred
-      setFormState('error-generic')
+      if (!onAddPhone) {
+        setFormState('error-generic')
+        return
+      }
+      try {
+        onAdd(await onAddPhone(trimmed))
+      } catch (cause) {
+        setFormState(cause instanceof ApiError && cause.status === 409
+          ? 'error-conflict'
+          : 'error-generic')
+      }
       return
     }
 
@@ -147,7 +158,7 @@ export function AddStaffDialog({ open, existingPhones, onAdd, onClose }: AddStaf
             <p className="font-semibold text-foreground">The person must already have a Tteeka account.</p>
             <p className="mt-1 leading-5">
               Enter their phone number to add them to this business. A new membership will be created
-              immediately with no roles assigned.
+              immediately with no roles assigned. This does not create login credentials or send an invitation.
             </p>
           </div>
 

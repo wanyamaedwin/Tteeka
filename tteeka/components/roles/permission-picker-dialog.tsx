@@ -8,8 +8,7 @@ import {
   PERMISSION_GROUPS,
   PERMISSION_GROUP_LABELS,
   getPermissionsByGroup,
-  getPermissionMeta,
-  type PermissionKey,
+  type PermissionMetadata,
 } from '@/lib/permissions'
 import type { RolePreview } from '@/lib/mock-staff'
 
@@ -30,6 +29,7 @@ type PermissionPickerDialogProps = {
   open: boolean
   role: RolePreview
   submitting?: boolean
+  permissions?: readonly PermissionMetadata[]
   onSave: (newKeys: string[]) => void
   onCancel: () => void
 }
@@ -38,31 +38,35 @@ export function PermissionPickerDialog({
   open,
   role,
   submitting,
+  permissions = PERMISSION_CATALOG,
   onSave,
   onCancel,
 }: PermissionPickerDialogProps) {
   const panelRef = useRef<HTMLDivElement>(null)
 
   // Selected set — initialised to current role's permissionKeys
-  const [selected, setSelected] = useState<Set<string>>(new Set(role.permissionKeys))
+  const catalogKeys = new Set(permissions.map((permission) => permission.key))
+  const [selected, setSelected] = useState<Set<string>>(
+    new Set(role.permissionKeys.filter((key) => catalogKeys.has(key))),
+  )
 
   // Re-sync when role changes
   useEffect(() => {
-    setSelected(new Set(role.permissionKeys))
-  }, [role.id, role.permissionKeys])
+    const keys = new Set(permissions.map((permission) => permission.key))
+    setSelected(new Set(role.permissionKeys.filter((key) => keys.has(key))))
+  }, [permissions, role.id, role.permissionKeys])
 
   // Compute diff
-  const catalogKeys = new Set(PERMISSION_CATALOG.map((p) => p.key))
-  const added = PERMISSION_CATALOG.filter(
+  const added = permissions.filter(
     (p) => selected.has(p.key) && !role.permissionKeys.includes(p.key),
   )
-  const removed = PERMISSION_CATALOG.filter(
+  const removed = permissions.filter(
     (p) => !selected.has(p.key) && role.permissionKeys.includes(p.key),
   )
-  const hasChanges = added.length > 0 || removed.length > 0
+  const deprecatedAssigned = role.permissionKeys.filter((key) => !catalogKeys.has(key))
+  const hasChanges = added.length > 0 || removed.length > 0 || deprecatedAssigned.length > 0
 
   // Historical deprecated keys — assigned to role but NOT in current catalog
-  const deprecatedAssigned = role.permissionKeys.filter((k) => !catalogKeys.has(k as PermissionKey))
 
   // Confirm step
   const [confirming, setConfirming] = useState(false)
@@ -196,7 +200,8 @@ export function PermissionPickerDialog({
             // ── Permission checklist ───────────────────────────────────────
             <div className="space-y-6">
               {PERMISSION_GROUPS.map((group) => {
-                const perms = getPermissionsByGroup(group)
+                const perms = getPermissionsByGroup(group, permissions)
+                if (perms.length === 0) return null
                 return (
                   <div key={group}>
                     <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">

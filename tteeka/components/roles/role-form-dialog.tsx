@@ -23,6 +23,7 @@ type RoleFormDialogProps = {
   existingRole?: RolePreview      // required for edit mode
   existingNames: string[]         // for duplicate detection
   submitting?: boolean
+  submitError?: string | null
   onSave: (name: string, description: string) => void
   onCancel: () => void
 }
@@ -33,6 +34,7 @@ export function RoleFormDialog({
   existingRole,
   existingNames,
   submitting,
+  submitError,
   onSave,
   onCancel,
 }: RoleFormDialogProps) {
@@ -126,6 +128,10 @@ export function RoleFormDialog({
             <p className="text-sm text-muted-foreground">
               The new role will start active with no permissions assigned. You can add permissions after creating it.
             </p>
+          )}
+
+          {submitError && (
+            <p role="alert" className="text-sm text-destructive">{submitError}</p>
           )}
 
           {/* Name */}

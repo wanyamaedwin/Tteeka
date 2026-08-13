@@ -8,7 +8,7 @@ import {
   PERMISSION_GROUPS,
   PERMISSION_GROUP_LABELS,
   getPermissionsByGroup,
-  type PermissionGroup,
+  type PermissionMetadata,
 } from '@/lib/permissions'
 
 // ---------------------------------------------------------------------------
@@ -18,12 +18,16 @@ import {
 // No CRUD. Permission definitions are code-owned by the backend.
 // ---------------------------------------------------------------------------
 
-export function PermissionCatalogue() {
+export function PermissionCatalogue({
+  permissions = PERMISSION_CATALOG,
+}: {
+  permissions?: readonly PermissionMetadata[]
+}) {
   const [search, setSearch] = useState('')
 
   const q = search.trim().toLowerCase()
   const filtered = q
-    ? PERMISSION_CATALOG.filter(
+    ? permissions.filter(
         (p) =>
           p.label.toLowerCase().includes(q) ||
           p.key.toLowerCase().includes(q) ||
@@ -40,7 +44,7 @@ export function PermissionCatalogue() {
         <div>
           <h2 className="font-semibold">Permission catalogue</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {PERMISSION_CATALOG.length} permissions are currently active. Permission definitions are managed by the system.
+            {permissions.length} permissions are currently active. Permission definitions are managed by the system.
           </p>
         </div>
         <div className="relative sm:w-60">
@@ -67,7 +71,7 @@ export function PermissionCatalogue() {
       {PERMISSION_GROUPS.map((group) => {
         const perms = filtered
           ? filtered.filter((p) => p.group === group)
-          : getPermissionsByGroup(group)
+          : getPermissionsByGroup(group, permissions)
         if (perms.length === 0) return null
         return (
           <div key={group}>

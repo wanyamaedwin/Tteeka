@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { ShieldCheck, X, Pencil, Power, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { PERMISSION_GROUPS, PERMISSION_GROUP_LABELS, getPermissionsByGroup, getPermissionMeta } from '@/lib/permissions'
+import { PERMISSION_CATALOG, PERMISSION_GROUPS, PERMISSION_GROUP_LABELS, type PermissionMetadata } from '@/lib/permissions'
 import type { RolePreview, StaffMemberPreview } from '@/lib/mock-staff'
 
 // ---------------------------------------------------------------------------
@@ -17,7 +17,8 @@ import type { RolePreview, StaffMemberPreview } from '@/lib/mock-staff'
 type RoleDetailPanelProps = {
   open: boolean
   role: RolePreview
-  staffList: StaffMemberPreview[]
+  staffList?: StaffMemberPreview[]
+  permissions?: readonly PermissionMetadata[]
   canManage: boolean
   onClose: () => void
   onEdit: (role: RolePreview) => void
@@ -30,6 +31,7 @@ export function RoleDetailPanel({
   open,
   role,
   staffList,
+  permissions = PERMISSION_CATALOG,
   canManage,
   onClose,
   onEdit,
@@ -53,20 +55,21 @@ export function RoleDetailPanel({
   const isActive = role.status === 'ACTIVE'
 
   // Staff count — derived from live staffList (any membership that holds this role)
-  const assignedCount = staffList.filter((m) => m.roleIds.includes(role.id)).length
+  const assignedCount = staffList?.filter((m) => m.roleIds.includes(role.id)).length
+  const permissionMap = new Map(permissions.map((permission) => [permission.key, permission]))
 
   // Group permissions for display
   const catalogGroups = PERMISSION_GROUPS.map((g) => ({
     group: g,
     label: PERMISSION_GROUP_LABELS[g],
     keys: role.permissionKeys.filter((k) => {
-      const meta = getPermissionMeta(k)
+      const meta = permissionMap.get(k)
       return meta?.group === g
     }),
   })).filter((g) => g.keys.length > 0)
 
   // Deprecated keys — not in catalog
-  const deprecatedKeys = role.permissionKeys.filter((k) => !getPermissionMeta(k))
+  const deprecatedKeys = role.permissionKeys.filter((key) => !permissionMap.has(key))
 
   return (
     <>
@@ -127,7 +130,7 @@ export function RoleDetailPanel({
               <p className="text-xs text-muted-foreground">Permission{role.permissionKeys.length !== 1 ? 's' : ''}</p>
             </div>
             <div className="rounded-xl border border-border bg-secondary/40 px-4 py-3">
-              <p className="text-lg font-bold">{assignedCount}</p>
+              <p className="text-lg font-bold">{assignedCount ?? '—'}</p>
               <p className="text-xs text-muted-foreground">Assigned staff</p>
             </div>
           </div>
@@ -158,7 +161,7 @@ export function RoleDetailPanel({
                     <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
                     <ul className="space-y-1.5">
                       {keys.map((k) => {
-                        const meta = getPermissionMeta(k)
+                        const meta = permissionMap.get(k)
                         return (
                           <li key={k} className="rounded-lg border border-border bg-secondary/30 px-3 py-2">
                             <p className="text-sm font-medium">{meta?.label ?? k}</p>

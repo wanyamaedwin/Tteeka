@@ -51,7 +51,7 @@ export type PermissionKey = (typeof PERMISSION_KEYS)[number]
 // Permission group definition
 // ---------------------------------------------------------------------------
 
-export type PermissionGroup = 'BUSINESS' | 'TEAM' | 'CATALOGUE' | 'INVENTORY' | 'CUSTOMERS' | 'ORDERS' | 'PAYMENTS' | 'DELIVERIES'
+export type PermissionGroup = 'BUSINESS' | 'TEAM' | 'CATALOGUE' | 'INVENTORY' | 'CUSTOMERS' | 'ORDERS' | 'PAYMENTS' | 'DELIVERIES' | 'OTHER'
 
 export const PERMISSION_GROUP_LABELS: Record<PermissionGroup, string> = {
   BUSINESS: 'Business',
@@ -62,6 +62,7 @@ export const PERMISSION_GROUP_LABELS: Record<PermissionGroup, string> = {
   ORDERS: 'Orders',
   PAYMENTS: 'Payments',
   DELIVERIES: 'Deliveries',
+  OTHER: 'Other',
 }
 
 // ---------------------------------------------------------------------------
@@ -69,7 +70,7 @@ export const PERMISSION_GROUP_LABELS: Record<PermissionGroup, string> = {
 // ---------------------------------------------------------------------------
 
 export type PermissionMetadata = {
-  key: PermissionKey
+  key: string
   label: string
   description: string
   group: PermissionGroup
@@ -182,8 +183,11 @@ export const PERMISSION_CATALOG: PermissionMetadata[] = [
 ]
 
 /** Return catalog entries for a given group in order. */
-export function getPermissionsByGroup(group: PermissionGroup): PermissionMetadata[] {
-  return PERMISSION_CATALOG.filter((p) => p.group === group)
+export function getPermissionsByGroup(
+  group: PermissionGroup,
+  catalog: readonly PermissionMetadata[] = PERMISSION_CATALOG,
+): PermissionMetadata[] {
+  return catalog.filter((p) => p.group === group)
 }
 
 /** All groups in display order. */
@@ -196,9 +200,36 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
   'ORDERS',
   'PAYMENTS',
   'DELIVERIES',
+  'OTHER',
 ]
 
 /** Lookup metadata for a single key. Returns undefined if not found (deprecated/unknown). */
 export function getPermissionMeta(key: string): PermissionMetadata | undefined {
   return PERMISSION_CATALOG.find((p) => p.key === key)
+}
+
+export function presentPermissionCatalogue(
+  entries: readonly { key: string; description: string }[],
+): PermissionMetadata[] {
+  return entries.map((entry) => {
+    const known = getPermissionMeta(entry.key)
+    return {
+      key: entry.key,
+      label: known?.label ?? entry.key,
+      description: entry.description,
+      group: known?.group ?? inferPermissionGroup(entry.key),
+    }
+  })
+}
+
+function inferPermissionGroup(key: string): PermissionGroup {
+  if (key.startsWith('merchant.profile.') || key.startsWith('merchant.settings.')) return 'BUSINESS'
+  if (key.startsWith('merchant.staff.') || key.startsWith('merchant.roles.')) return 'TEAM'
+  if (key.startsWith('catalogue.')) return 'CATALOGUE'
+  if (key.startsWith('inventory.')) return 'INVENTORY'
+  if (key.startsWith('customers.')) return 'CUSTOMERS'
+  if (key.startsWith('orders.')) return 'ORDERS'
+  if (key.startsWith('payments.')) return 'PAYMENTS'
+  if (key.startsWith('deliveries.')) return 'DELIVERIES'
+  return 'OTHER'
 }

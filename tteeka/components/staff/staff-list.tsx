@@ -16,6 +16,7 @@ type StaffListProps = {
   members: StaffMemberPreview[]
   allRoles: MockRoleRecord[]
   canManage: boolean
+  canManageRoles: boolean
   onSelect: (member: StaffMemberPreview) => void
   onManageRoles: (member: StaffMemberPreview) => void
   onDisable: (member: StaffMemberPreview) => void
@@ -26,6 +27,7 @@ export function StaffList({
   members,
   allRoles,
   canManage,
+  canManageRoles,
   onSelect,
   onManageRoles,
   onDisable,
@@ -43,7 +45,7 @@ export function StaffList({
                 <th className="px-5 py-3.5">Phone</th>
                 <th className="px-5 py-3.5">Status</th>
                 <th className="px-5 py-3.5">Roles</th>
-                {canManage && <th className="px-5 py-3.5 text-right">Actions</th>}
+                {(canManage || canManageRoles) && <th className="px-5 py-3.5 text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -53,6 +55,7 @@ export function StaffList({
                   member={member}
                   allRoles={allRoles}
                   canManage={canManage}
+                  canManageRoles={canManageRoles}
                   onSelect={onSelect}
                   onManageRoles={onManageRoles}
                   onDisable={onDisable}
@@ -72,6 +75,7 @@ export function StaffList({
             member={member}
             allRoles={allRoles}
             canManage={canManage}
+            canManageRoles={canManageRoles}
             onSelect={onSelect}
             onManageRoles={onManageRoles}
             onDisable={onDisable}
@@ -150,6 +154,7 @@ function StatusBadge({ status }: { status: 'ACTIVE' | 'DISABLED' }) {
 function ActionMenu({
   member,
   canManage,
+  canManageRoles,
   onSelect,
   onManageRoles,
   onDisable,
@@ -157,6 +162,7 @@ function ActionMenu({
 }: {
   member: StaffMemberPreview
   canManage: boolean
+  canManageRoles: boolean
   onSelect: (m: StaffMemberPreview) => void
   onManageRoles: (m: StaffMemberPreview) => void
   onDisable: (m: StaffMemberPreview) => void
@@ -203,17 +209,17 @@ function ActionMenu({
           >
             View details
           </button>
-          {canManage && (
+          {(canManage || canManageRoles) && (
             <>
-              <button
+              {canManageRoles && <button
                 role="menuitem"
                 type="button"
                 onClick={() => { setOpen(false); onManageRoles(member) }}
                 className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-secondary"
               >
                 Manage roles
-              </button>
-              {member.membershipStatus === 'ACTIVE' ? (
+              </button>}
+              {canManage && (member.membershipStatus === 'ACTIVE' ? (
                 <button
                   role="menuitem"
                   type="button"
@@ -231,7 +237,7 @@ function ActionMenu({
                 >
                   Reactivate access
                 </button>
-              )}
+              ))}
             </>
           )}
         </div>
@@ -248,6 +254,7 @@ function StaffTableRow({
   member,
   allRoles,
   canManage,
+  canManageRoles,
   onSelect,
   onManageRoles,
   onDisable,
@@ -256,6 +263,7 @@ function StaffTableRow({
   member: StaffMemberPreview
   allRoles: MockRoleRecord[]
   canManage: boolean
+  canManageRoles: boolean
   onSelect: (m: StaffMemberPreview) => void
   onManageRoles: (m: StaffMemberPreview) => void
   onDisable: (m: StaffMemberPreview) => void
@@ -298,11 +306,12 @@ function StaffTableRow({
       </td>
 
       {/* Actions */}
-      {canManage && (
+      {(canManage || canManageRoles) && (
         <td className="px-5 py-4 text-right">
           <ActionMenu
             member={member}
             canManage={canManage}
+            canManageRoles={canManageRoles}
             onSelect={onSelect}
             onManageRoles={onManageRoles}
             onDisable={onDisable}
@@ -322,6 +331,7 @@ function StaffCard({
   member,
   allRoles,
   canManage,
+  canManageRoles,
   onSelect,
   onManageRoles,
   onDisable,
@@ -330,6 +340,7 @@ function StaffCard({
   member: StaffMemberPreview
   allRoles: MockRoleRecord[]
   canManage: boolean
+  canManageRoles: boolean
   onSelect: (m: StaffMemberPreview) => void
   onManageRoles: (m: StaffMemberPreview) => void
   onDisable: (m: StaffMemberPreview) => void
@@ -364,6 +375,7 @@ function StaffCard({
               <ActionMenu
                 member={member}
                 canManage={canManage}
+                canManageRoles={canManageRoles}
                 onSelect={onSelect}
                 onManageRoles={onManageRoles}
                 onDisable={onDisable}

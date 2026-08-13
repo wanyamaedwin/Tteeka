@@ -18,6 +18,7 @@ type StaffDetailPanelProps = {
   member: StaffMemberPreview
   allRoles: MockRoleRecord[]
   canManage: boolean
+  canManageRoles: boolean
   /** Current logged-in user's membership userId, for self-disable detection */
   currentUserId?: string
   onClose: () => void
@@ -31,6 +32,7 @@ export function StaffDetailPanel({
   member,
   allRoles,
   canManage,
+  canManageRoles,
   currentUserId,
   onClose,
   onDisable,
@@ -164,7 +166,7 @@ export function StaffDetailPanel({
               <h3 id="roles-heading" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Assigned roles
               </h3>
-              {canManage && (
+              {canManageRoles && (
                 <button
                   type="button"
                   onClick={() => onManageRoles(member)}

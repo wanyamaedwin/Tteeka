@@ -76,6 +76,7 @@ type WorkspaceContextValue = {
   switchWorkspace: (id: string) => void
   requestWorkspaceSwitch: (id: string) => Promise<boolean>
   registerSwitchGuard: (fn: SwitchGuardFn | null) => void
+  refreshWorkspace: () => Promise<void>
   hasPermission: (permission: Permission) => boolean
   canManage: (managePermission: Permission, readPermission: Permission) => boolean
   // Business data (mock mode)
@@ -693,6 +694,7 @@ export function MerchantWorkspaceProvider({ children }: { children: React.ReactN
     switchWorkspace: doSwitch,
     requestWorkspaceSwitch,
     registerSwitchGuard,
+    refreshWorkspace: loadLiveWorkspace,
     hasPermission: (permission) => baseWorkspace.permissions.includes(permission),
     canManage: (managePermission, readPermission) =>
       baseWorkspace.permissions.includes(managePermission) ||
@@ -736,6 +738,7 @@ export function MerchantWorkspaceProvider({ children }: { children: React.ReactN
     doSwitch,
     requestWorkspaceSwitch,
     registerSwitchGuard,
+    loadLiveWorkspace,
     profile,
     settings,
     updateMockProfile,

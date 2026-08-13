@@ -9,7 +9,7 @@ import { useMerchantWorkspace } from '@/components/merchant-workspace-provider'
 const actions = [
   { label: 'Add product', hint: 'Create a product and its variants', icon: PackagePlus, href: '/app/catalogue/products', managePermission: 'CATALOGUE_MANAGE' as const, readPermission: 'CATALOGUE_READ' as const },
   { label: 'Receive stock', hint: 'Update available inventory', icon: Boxes, href: '/app/inventory', managePermission: 'INVENTORY_MANAGE' as const, readPermission: 'INVENTORY_READ' as const },
-  { label: 'Add staff', hint: 'Invite someone to your workspace', icon: Plus, href: '/app/team/staff', managePermission: 'STAFF_MANAGE' as const, readPermission: 'STAFF_READ' as const },
+  { label: 'Add staff', hint: 'Add an existing Tteeka user', icon: Plus, href: '/app/team/staff', managePermission: 'STAFF_MANAGE' as const, readPermission: 'STAFF_READ' as const },
   { label: 'Manage roles', hint: 'Review access and permissions', icon: Users, href: '/app/team/roles', permission: 'STAFF_MANAGE' as const },
 ]
 
