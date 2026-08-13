@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pencil, ShieldAlert } from 'lucide-react'
 import { AppShell, PageHeader } from '@/components/app-shell'
+import { ErrorState, LoadingSkeleton } from '@/components/async-state'
+import { useAuth } from '@/components/auth-provider'
 import { AccessDenied } from '@/components/workspace-access'
 import { BusinessSettingsView } from '@/components/business/business-settings-view'
 import { BusinessSettingsForm } from '@/components/business/business-settings-form'
@@ -10,6 +12,11 @@ import { UnsavedChangesDialog } from '@/components/business/unsaved-changes-dial
 import { useMerchantWorkspace } from '@/components/merchant-workspace-provider'
 import { useToast } from '@/components/ui/toast'
 import { isMockMode } from '@/lib/config'
+import { ApiError } from '@/lib/api/errors'
+import {
+  getMerchantSettings,
+  updateMerchantSettings,
+} from '@/lib/api/merchant-profile-settings'
 import type { BusinessSettings } from '@/lib/workspaces'
 
 // ---------------------------------------------------------------------------
@@ -37,16 +44,48 @@ export default function BusinessSettingsPage() {
 function SettingsPageContent() {
   const {
     workspace,
-    settings,
+    settings: mockSettings,
     hasPermission,
     updateMockSettings,
     registerSwitchGuard,
     switchWorkspace,
   } = useMerchantWorkspace()
+  const { clearUser } = useAuth()
   const { toast } = useToast()
+  const mockMode = isMockMode()
 
   const canRead = hasPermission(PERM_SETTINGS_READ)
   const canManage = hasPermission(PERM_SETTINGS_MANAGE)
+
+  const [liveSettings, setLiveSettings] = useState<BusinessSettings | null>(null)
+  const [liveLoading, setLiveLoading] = useState(!mockMode && canRead)
+  const [liveError, setLiveError] = useState<ApiError | null>(null)
+  const settings = mockMode ? mockSettings : liveSettings
+
+  const loadSettings = useCallback(async () => {
+    if (mockMode || !canRead) {
+      setLiveSettings(null)
+      setLiveError(null)
+      setLiveLoading(false)
+      return
+    }
+    setLiveLoading(true)
+    setLiveError(null)
+    try {
+      setLiveSettings(await getMerchantSettings(workspace.id))
+    } catch (cause) {
+      const error = cause instanceof ApiError
+        ? cause
+        : new ApiError({ message: 'Unable to load settings.' })
+      setLiveSettings(null)
+      setLiveError(error)
+      if (error.status === 401) clearUser()
+    } finally {
+      setLiveLoading(false)
+    }
+  }, [canRead, clearUser, mockMode, workspace.id])
+
+  useEffect(() => { void loadSettings() }, [loadSettings])
 
   const isUnavailable =
     workspace.status !== 'ACTIVE' || workspace.membershipStatus !== 'ACTIVE'
@@ -92,14 +131,24 @@ function SettingsPageContent() {
 
   // ── Save (mock) ──────────────────────────────────────────────────────────
   async function handleSave(patch: Partial<BusinessSettings>) {
-    if (isMockMode()) {
+    if (mockMode) {
       await new Promise((r) => setTimeout(r, 400))
       updateMockSettings(patch)
       setEditing(false)
       setDirty(false)
       toast('Business settings updated.')
+      return
     }
-    // Live mode: API integration deferred
+    try {
+      const saved = await updateMerchantSettings(workspace.id, patch)
+      if (canRead) setLiveSettings(saved)
+      setEditing(false)
+      setDirty(false)
+      toast('Business settings updated.')
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 401) clearUser()
+      throw cause
+    }
   }
 
   // ── Cancel ───────────────────────────────────────────────────────────────
@@ -152,6 +201,59 @@ function SettingsPageContent() {
           description="Manage the core settings Tteeka uses for this business."
         />
         <ManageOnlySettingsCard onSave={handleSave} />
+      </>
+    )
+  }
+
+  if (!mockMode && liveLoading) {
+    return (
+      <>
+        <PageHeader
+          eyebrow="Business"
+          title="Business Settings"
+          description="Manage the core settings Tteeka uses for this business."
+        />
+        <div className="max-w-3xl">
+          <LoadingSkeleton label="Loading business settings" />
+        </div>
+      </>
+    )
+  }
+
+  if (!mockMode && liveError?.status === 401) {
+    return <LoadingSkeleton label="Returning to sign in" />
+  }
+
+  if (!mockMode && liveError?.status === 403) {
+    return (
+      <>
+        <PageHeader
+          eyebrow="Business"
+          title="Business Settings"
+          description="Manage the core settings Tteeka uses for this business."
+        />
+        <AccessDenied title="You do not have access to Business Settings." />
+      </>
+    )
+  }
+
+  if (!settings) {
+    return (
+      <>
+        <PageHeader
+          eyebrow="Business"
+          title="Business Settings"
+          description="Manage the core settings Tteeka uses for this business."
+        />
+        <div className="max-w-3xl">
+          <ErrorState
+            title="Unable to load settings."
+            description={liveError?.isNetworkError
+              ? "We couldn't reach Tteeka. Check your connection and try again."
+              : 'Please try again.'}
+            onRetry={() => void loadSettings()}
+          />
+        </div>
       </>
     )
   }

@@ -122,6 +122,27 @@ Migration 15, `onboarding_idempotency_foundation`, adds the smallest command rec
 
 For local live use, open `http://localhost:3001/login`, choose **Create account**, and let the browser call `http://localhost:3000/api/v1/onboarding/register`. The API and frontend URLs remain `http://localhost:3000/api/v1` and `http://localhost:3001`. Production onboarding has no dependency on `dev:provision-auth`; that command remains available only as the previously documented explicit local fixture tool.
 
+## Live Merchant Profile and Settings (INT0.2A)
+
+The existing F3.1 Business Profile and Business Settings pages now use the frozen B2.1 API directly in live mode:
+
+```text
+GET   /api/v1/merchants/:merchantId/profile
+PATCH /api/v1/merchants/:merchantId/profile
+GET   /api/v1/merchants/:merchantId/settings
+PATCH /api/v1/merchants/:merchantId/settings
+```
+
+The Merchant ID always comes from authenticated workspace discovery and Merchant context. The pages use the centralized typed API client, which keeps `credentials: include` and `cache: no-store`; they contain no locally configured, provisioned, or browser-test Merchant ID. Profile exposes only `id`, `displayName`, `legalName`, `phone`, and `email`, with PATCH limited to the four mutable business fields. Settings exposes and patches only `currency` and `timezone`.
+
+Authorization remains the exact B2.1 model: Profile GET requires `merchant.profile.read`, Profile PATCH requires `merchant.profile.manage`, Settings GET requires `merchant.settings.read`, and Settings PATCH requires `merchant.settings.manage`. Manage never implies read. Read-only users see authoritative values without edit actions; manage-only users receive a blank partial-update form without a preceding GET or disclosure of saved values; users with neither permission receive no resource request.
+
+Live Profile and Settings reads are page-scoped, show resource-specific loading and bounded retry states, and never replace failures with mock fixtures. HTTP 401 returns to the frozen sign-in flow, HTTP 403 remains an access state, and network/save failures remain bounded. Explicit mock mode continues to use the existing F3.1 fixtures and in-memory updates.
+
+Verified locally with a Merchant created through the real INT0.1C registration flow: the onboarding display name appeared through B2.1 Profile GET; a legal-name PATCH survived hard refresh and matched PostgreSQL; Settings GET returned the database-owned `UGX` and `Africa/Kampala` defaults; a temporary timezone PATCH survived refresh and was restored; an invalid phone PATCH showed a bounded frontend error and left storage unchanged; removing `merchant.profile.read` produced manage-only UI and a real API 403 while authentication remained valid; restoring it returned the Owner Role to all 21 active permissions. A controlled API outage produced a bounded save failure with no mock continuation, and recovery refetched the previously persisted Profile.
+
+An authenticated User with no ACTIVE Membership still stops at `/onboarding/workspace`; Profile and Settings are not mounted and make no Merchant request in that state. Staff/Roles, Catalogue, Inventory, Customers, Orders, Payments, and Deliveries live integration remain outside INT0.2A.
+
 ## Verified INT0.1 boundary
 
 INT0.1C uses 15 applied migrations and preserves the frozen session and authorization architecture. Production onboarding does not use development confirmation variables, does not create a special Session path, does not expose credentials or request fingerprints, and does not silently continue with mock data when a live request fails.

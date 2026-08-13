@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pencil, ShieldAlert } from 'lucide-react'
 import { AppShell, PageHeader } from '@/components/app-shell'
+import { ErrorState, LoadingSkeleton } from '@/components/async-state'
+import { useAuth } from '@/components/auth-provider'
 import { AccessDenied } from '@/components/workspace-access'
 import { BusinessProfileView } from '@/components/business/business-profile-view'
 import { BusinessProfileForm } from '@/components/business/business-profile-form'
@@ -10,6 +12,11 @@ import { UnsavedChangesDialog } from '@/components/business/unsaved-changes-dial
 import { useMerchantWorkspace } from '@/components/merchant-workspace-provider'
 import { useToast } from '@/components/ui/toast'
 import { isMockMode } from '@/lib/config'
+import { ApiError } from '@/lib/api/errors'
+import {
+  getMerchantProfile,
+  updateMerchantProfile,
+} from '@/lib/api/merchant-profile-settings'
 import type { BusinessProfile } from '@/lib/workspaces'
 
 // ---------------------------------------------------------------------------
@@ -37,15 +44,47 @@ export default function BusinessProfilePage() {
 function ProfilePageContent() {
   const {
     workspace,
-    profile,
+    profile: mockProfile,
     hasPermission,
     updateMockProfile,
     registerSwitchGuard,
   } = useMerchantWorkspace()
+  const { clearUser } = useAuth()
   const { toast } = useToast()
+  const mockMode = isMockMode()
 
   const canRead = hasPermission(PERM_PROFILE_READ)
   const canManage = hasPermission(PERM_PROFILE_MANAGE)
+
+  const [liveProfile, setLiveProfile] = useState<BusinessProfile | null>(null)
+  const [liveLoading, setLiveLoading] = useState(!mockMode && canRead)
+  const [liveError, setLiveError] = useState<ApiError | null>(null)
+  const profile = mockMode ? mockProfile : liveProfile
+
+  const loadProfile = useCallback(async () => {
+    if (mockMode || !canRead) {
+      setLiveProfile(null)
+      setLiveError(null)
+      setLiveLoading(false)
+      return
+    }
+    setLiveLoading(true)
+    setLiveError(null)
+    try {
+      setLiveProfile(await getMerchantProfile(workspace.id))
+    } catch (cause) {
+      const error = cause instanceof ApiError
+        ? cause
+        : new ApiError({ message: 'Unable to load business profile.' })
+      setLiveProfile(null)
+      setLiveError(error)
+      if (error.status === 401) clearUser()
+    } finally {
+      setLiveLoading(false)
+    }
+  }, [canRead, clearUser, mockMode, workspace.id])
+
+  useEffect(() => { void loadProfile() }, [loadProfile])
 
   // Workspace unavailable states are handled by AppShell
   const isUnavailable =
@@ -93,15 +132,25 @@ function ProfilePageContent() {
 
   // ── Save handler (mock mode) ─────────────────────────────────────────────
   async function handleSave(patch: Partial<BusinessProfile>) {
-    if (isMockMode()) {
+    if (mockMode) {
       // Simulate a brief save delay for realistic UX
       await new Promise((r) => setTimeout(r, 400))
       updateMockProfile(patch)
       setEditing(false)
       setDirty(false)
       toast('Business profile updated.')
+      return
     }
-    // Live mode: no-op — API integration deferred
+    try {
+      const saved = await updateMerchantProfile(workspace.id, patch)
+      if (canRead) setLiveProfile(saved)
+      setEditing(false)
+      setDirty(false)
+      toast('Business profile updated.')
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 401) clearUser()
+      throw cause
+    }
   }
 
   // ── Cancel handler ───────────────────────────────────────────────────────
@@ -167,6 +216,59 @@ function ProfilePageContent() {
         <ManageOnlyProfileCard
           onSave={handleSave}
         />
+      </>
+    )
+  }
+
+  if (!mockMode && liveLoading) {
+    return (
+      <>
+        <PageHeader
+          eyebrow="Business"
+          title="Business Profile"
+          description="Manage the basic information used to identify your business in Tteeka."
+        />
+        <div className="max-w-3xl">
+          <LoadingSkeleton label="Loading business profile" />
+        </div>
+      </>
+    )
+  }
+
+  if (!mockMode && liveError?.status === 401) {
+    return <LoadingSkeleton label="Returning to sign in" />
+  }
+
+  if (!mockMode && liveError?.status === 403) {
+    return (
+      <>
+        <PageHeader
+          eyebrow="Business"
+          title="Business Profile"
+          description="Manage the basic information used to identify your business in Tteeka."
+        />
+        <AccessDenied title="You do not have access to Business Profile." />
+      </>
+    )
+  }
+
+  if (!profile) {
+    return (
+      <>
+        <PageHeader
+          eyebrow="Business"
+          title="Business Profile"
+          description="Manage the basic information used to identify your business in Tteeka."
+        />
+        <div className="max-w-3xl">
+          <ErrorState
+            title="Unable to load business profile."
+            description={liveError?.isNetworkError
+              ? "We couldn't reach Tteeka. Check your connection and try again."
+              : 'Please try again.'}
+            onRetry={() => void loadProfile()}
+          />
+        </div>
       </>
     )
   }

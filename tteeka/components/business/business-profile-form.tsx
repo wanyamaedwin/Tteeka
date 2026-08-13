@@ -173,7 +173,7 @@ export function BusinessProfileForm({
     try {
       await onSave(patch)
     } catch {
-      setSubmitError('Something went wrong. Please try again.')
+      setSubmitError("We couldn't save your business details.")
     } finally {
       setSubmitting(false)
     }
