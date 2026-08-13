@@ -49,13 +49,15 @@ import {
   releaseMockHold,
   updateMockHoldExpiry
 } from '@/lib/mock-inventory'
-import { getMerchantId, isMockMode } from '@/lib/config'
+import { isMockMode } from '@/lib/config'
 import { ApiError } from '@/lib/api/errors'
 import { getMerchantContext, projectMerchantContext } from '@/lib/api/merchant-context'
 import { ErrorState, LoadingSkeleton } from '@/components/async-state'
 import { useAuth } from '@/components/auth-provider'
 import { getMockOrderHolds, mockOrderReservationSnapshot, subscribeMockOrderReservations } from '@/lib/mock-order-reservations'
 import { useSyncExternalStore } from 'react'
+import { getWorkspaceStatus } from '@/lib/api/onboarding'
+import { useRouter } from 'next/navigation'
 
 // ---------------------------------------------------------------------------
 // Unsaved-changes guard
@@ -162,11 +164,13 @@ const emptyLiveWorkspace: MerchantWorkspace = {
 export function MerchantWorkspaceProvider({ children }: { children: React.ReactNode }) {
   const mockMode = isMockMode()
   const { clearUser } = useAuth()
-  const [workspaceId, setWorkspaceId] = useState(() => mockMode ? 'dstyle' : getMerchantId())
+  const router = useRouter()
+  const [workspaceId, setWorkspaceId] = useState(() => mockMode ? 'dstyle' : '')
   const [switching, setSwitching] = useState(false)
   const [liveWorkspace, setLiveWorkspace] = useState<MerchantWorkspace | null>(null)
   const [liveError, setLiveError] = useState<ApiError | null>(null)
   const [liveLoading, setLiveLoading] = useState(!mockMode)
+  const [liveNoWorkspace, setLiveNoWorkspace] = useState(false)
 
   // Business overrides
   const [profileOverrides, setProfileOverrides] = useState<Record<string, Partial<BusinessProfile>>>({})
@@ -215,13 +219,17 @@ export function MerchantWorkspaceProvider({ children }: { children: React.ReactN
     if (mockMode) return
     setLiveLoading(true)
     setLiveError(null)
-    if (!workspaceId) {
-      setLiveError(new ApiError({ message: 'The live Merchant workspace is not configured.' }))
-      setLiveLoading(false)
-      return
-    }
+    setLiveNoWorkspace(false)
     try {
-      const context = await getMerchantContext(workspaceId)
+      const status = await getWorkspaceStatus()
+      if (status.state === 'NO_WORKSPACE') {
+        setLiveNoWorkspace(true)
+        router.replace('/onboarding/workspace')
+        return
+      }
+      const resolvedWorkspaceId = status.workspace.merchantId
+      setWorkspaceId(resolvedWorkspaceId)
+      const context = await getMerchantContext(resolvedWorkspaceId)
       setLiveWorkspace(projectMerchantContext(context))
     } catch (cause) {
       const error = cause instanceof ApiError ? cause : new ApiError({ message: 'Unable to load the Merchant workspace.' })
@@ -230,7 +238,7 @@ export function MerchantWorkspaceProvider({ children }: { children: React.ReactN
     } finally {
       setLiveLoading(false)
     }
-  }, [clearUser, mockMode, workspaceId])
+  }, [clearUser, mockMode, router])
 
   useEffect(() => { void loadLiveWorkspace() }, [loadLiveWorkspace])
 
@@ -762,6 +770,7 @@ export function MerchantWorkspaceProvider({ children }: { children: React.ReactN
   ])
 
   if (!mockMode && liveLoading) return <LoadingSkeleton label="Loading Merchant workspace" />
+  if (!mockMode && liveNoWorkspace) return <LoadingSkeleton label="Opening workspace setup" />
   if (!mockMode && liveError) {
     return <ErrorState
       title={liveError.status === 403 ? 'Workspace access denied' : 'Workspace unavailable'}

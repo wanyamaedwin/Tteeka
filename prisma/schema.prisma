@@ -45,6 +45,13 @@ enum RoleStatus {
   @@map("role_status")
 }
 
+enum OnboardingCommandKind {
+  REGISTER
+  WORKSPACE
+
+  @@map("onboarding_command_kind")
+}
+
 enum ProductStatus {
   ACTIVE
   INACTIVE
@@ -712,4 +719,21 @@ model RolePermission {
   @@unique([roleId, permissionId], map: "role_permissions_role_id_permission_id_key")
   @@index([permissionId], map: "role_permissions_permission_id_idx")
   @@map("role_permissions")
+}
+
+model OnboardingCommand {
+  id             String                @id(map: "onboarding_commands_pkey") @default(dbgenerated("uuidv7()")) @db.Uuid
+  kind           OnboardingCommandKind
+  subject        String                @db.VarChar(200)
+  idempotencyKey String                @map("idempotency_key") @db.VarChar(128)
+  requestHash    String                @map("request_hash") @db.Char(64)
+  userId         String                @map("user_id") @db.Uuid
+  merchantId     String                @map("merchant_id") @db.Uuid
+  membershipId   String                @map("membership_id") @db.Uuid
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([kind, subject, idempotencyKey], map: "onboarding_commands_kind_subject_idempotency_key_key")
+  @@index([userId], map: "onboarding_commands_user_id_idx")
+  @@index([merchantId], map: "onboarding_commands_merchant_id_idx")
+  @@map("onboarding_commands")
 }

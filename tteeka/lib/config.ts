@@ -11,7 +11,3 @@ export function isMockMode() {
 export function getApiBaseUrl() {
   return process.env.NEXT_PUBLIC_TTEEKA_API_BASE_URL?.replace(/\/$/, '') ?? ''
 }
-
-export function getMerchantId() {
-  return process.env.NEXT_PUBLIC_TTEEKA_MERCHANT_ID?.trim() ?? ''
-}

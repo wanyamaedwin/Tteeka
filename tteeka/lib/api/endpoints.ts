@@ -5,6 +5,11 @@ export const endpoints = {
   auth: {
     login: '/auth/login', me: '/auth/me', logout: '/auth/logout', logoutAll: '/auth/logout-all',
   },
+  onboarding: {
+    register: '/onboarding/register',
+    workspaceStatus: '/onboarding/workspace-status',
+    workspace: '/onboarding/workspace',
+  },
   merchant: {
     context: (merchantId: string) => `${merchant(merchantId)}/context`,
     profile: (merchantId: string) => `${merchant(merchantId)}/profile`,
