@@ -9,6 +9,12 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.use(cookieParser());
   const config = app.get<AppConfig>(APP_CONFIG);
+  if (config.frontendOrigin !== undefined) {
+    app.enableCors({
+      origin: [config.frontendOrigin],
+      credentials: true,
+    });
+  }
   app.enableShutdownHooks();
   await app.listen(config.apiPort);
 }

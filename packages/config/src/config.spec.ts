@@ -40,11 +40,36 @@ void test('valid development configuration succeeds with defaults', () => {
 
   assert.equal(config.nodeEnv, 'development');
   assert.equal(config.apiPort, 3000);
+  assert.equal(config.frontendOrigin, undefined);
   assert.equal(config.infraHealthTimeoutMs, 2000);
   assert.equal(config.sessionTtlSeconds, 43_200);
   assert.equal(config.sessionTouchIntervalSeconds, 300);
   assert.deepEqual(config.mtnMomoCollections, { enabled: false });
 });
+
+void test('accepts one exact frontend origin', () => {
+  assert.equal(
+    loadConfig({
+      ...VALID_ENVIRONMENT,
+      FRONTEND_ORIGIN: 'http://localhost:3001',
+    }).frontendOrigin,
+    'http://localhost:3001',
+  );
+});
+
+for (const origin of [
+  'http://localhost:3001/app',
+  'http://localhost:3001/',
+  '*',
+  'file:///tmp/tteeka',
+] as const) {
+  void test(`rejects non-origin frontend value ${origin}`, () => {
+    expectConfigurationError(
+      { ...VALID_ENVIRONMENT, FRONTEND_ORIGIN: origin },
+      'FRONTEND_ORIGIN',
+    );
+  });
+}
 
 void test('MTN Collections is disabled by default without credentials', () => {
   assert.deepEqual(loadMtnMomoCollectionsConfig({}), { enabled: false });

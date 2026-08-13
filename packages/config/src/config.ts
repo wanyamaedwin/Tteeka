@@ -8,6 +8,19 @@ const optionalEnvironmentValue = z.preprocess(
   z.string().optional(),
 );
 
+const optionalOrigin = optionalEnvironmentValue.refine(
+  (value) => {
+    if (value === undefined) return true;
+    try {
+      const url = new URL(value);
+      return url.origin === value && ['http:', 'https:'].includes(url.protocol);
+    } catch {
+      return false;
+    }
+  },
+  'FRONTEND_ORIGIN must be an HTTP(S) origin without a path',
+);
+
 const mtnMomoCollectionsEnvironmentSchema = z
   .object({
     MTN_MOMO_COLLECTIONS_ENABLED: z
@@ -85,6 +98,7 @@ const environmentSchema = z.object({
     .enum(['development', 'test', 'staging', 'production'])
     .default('development'),
   API_PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
+  FRONTEND_ORIGIN: optionalOrigin,
   DATABASE_URL: z
     .string()
     .min(1, 'DATABASE_URL is required')
@@ -138,6 +152,7 @@ export type MtnMomoCollectionsConfig =
 export interface AppConfig {
   readonly nodeEnv: NodeEnvironment;
   readonly apiPort: number;
+  readonly frontendOrigin?: string;
   readonly databaseUrl: string;
   readonly redisUrl: string;
   readonly infraHealthTimeoutMs: number;
@@ -196,6 +211,9 @@ export function loadConfig(environment: RawEnvironment): AppConfig {
   return Object.freeze({
     nodeEnv: result.data.NODE_ENV,
     apiPort: result.data.API_PORT,
+    ...(result.data.FRONTEND_ORIGIN === undefined
+      ? {}
+      : { frontendOrigin: result.data.FRONTEND_ORIGIN }),
     databaseUrl: result.data.DATABASE_URL,
     redisUrl: result.data.REDIS_URL,
     infraHealthTimeoutMs: result.data.INFRA_HEALTH_TIMEOUT_MS,

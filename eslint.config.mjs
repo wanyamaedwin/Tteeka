@@ -10,6 +10,7 @@ export default tseslint.config(
       '**/dist/**',
       '**/node_modules/**',
       'packages/database/src/generated/prisma/**',
+      'tteeka/**',
     ],
   },
   eslint.configs.recommended,
